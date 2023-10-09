@@ -16,8 +16,7 @@ contract AxelarHandler is AxelarExecutable, Ownable {
     error ZeroAddress();
     error EmptySymbol();
 
-    string public immutable WETH_SYMBOL;
-
+    string public immutable wETHSymbol;
     IAxelarGasService public gasService;
 
     constructor(
@@ -29,5 +28,6 @@ contract AxelarHandler is AxelarExecutable, Ownable {
         if (bytes(wethSymbol).length == 0) revert EmptySymbol();
 
         gasService = IAxelarGasService(axGasService);
+        wETHSymbol = wethSymbol;
     }
 }
