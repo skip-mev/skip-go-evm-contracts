@@ -11,6 +11,7 @@ contract AxelarHandlerDeploymentScript is Script {
     AxelarHandler public handler;
 
     function setUp() public {
+        vm.createSelectFork(vm.envString("RPC_URL"));
         env = new Environment();
         env.setEnv(block.chainid);
     }
@@ -20,7 +21,7 @@ contract AxelarHandlerDeploymentScript is Script {
         address gasService = env.gasService();
         string memory wethSymbol = env.wethSymbol();
 
-        vm.startBroadcast();
+        vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
         handler = new AxelarHandler(gateway, gasService, wethSymbol);
         vm.stopBroadcast();
 
