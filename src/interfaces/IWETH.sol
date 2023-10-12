@@ -18,10 +18,4 @@ interface IWETH is IERC20 {
     /// Requirements:
     ///   - caller account must have at least `value` balance of WETH10 token.
     function withdraw(uint256 value) external;
-
-    /// @dev Burn `value` WETH10 token from caller account and withdraw matching ETH to account (`to`).
-    /// Emits {Transfer} event to reflect WETH10 token burn of `value` to `address(0)` from caller account.
-    /// Requirements:
-    ///   - caller account must have at least `value` balance of WETH10 token.
-    function withdrawTo(address payable to, uint256 value) external;
 }
