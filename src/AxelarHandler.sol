@@ -6,14 +6,13 @@ import {IWETH} from "./interfaces/IWETH.sol";
 import {IAxelarGasService} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGasService.sol";
 import {AxelarExecutable} from "lib/axelar-gmp-sdk-solidity/contracts/executable/AxelarExecutable.sol";
 
-import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title AxelarHandler
 /// @notice allows to send and receive tokens to/from other chains through axelar gateway while wrapping the native tokens.
 /// @author Skip Protocol.
-contract AxelarHandler is AxelarExecutable, Ownable {
+contract AxelarHandler is AxelarExecutable {
     using SafeERC20 for IERC20;
 
     error EmptySymbol();
