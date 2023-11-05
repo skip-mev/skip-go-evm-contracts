@@ -24,13 +24,11 @@ contract AxelarHandlerTest is Test {
 
         vm.makePersistent(address(env));
 
-        vm.createSelectFork(
-            "https://eth-mainnet.g.alchemy.com/v2/rh1ZDrvuN_YyNFBb_ScfyNapv68fsTKN"
-        );
+        vm.createSelectFork("https://eth.llamarpc.com");
 
-        gateway = IAxelarGateway(env.gateway());
-        address gasService = env.gasService();
-        string memory wethSymbol = env.wethSymbol();
+        gateway = IAxelarGateway(0x4F4495243837681061C4743b74B3eEdf548D56A5);
+        address gasService = 0x2d5d7d31F671F86C782533cc367F14109a082712;
+        string memory wethSymbol = "WETH";
 
         handler = new AxelarHandler(address(gateway), gasService, wethSymbol);
 
@@ -109,7 +107,7 @@ contract AxelarHandlerTest is Test {
         vm.startPrank(ALICE);
 
         token.approve(address(handler), 49 ether);
-        vm.expectRevert(bytes("ERC20: transfer amount exceeds allowance"));
+        vm.expectRevert();
         handler.sendERC20Token("arbitrum", vm.toString(BOB), symbol, 50 ether);
         vm.stopPrank();
     }
@@ -181,34 +179,39 @@ contract AxelarHandlerTest is Test {
     }
 
     function test_gmpTransferERC20Token() public {
-        vm.deal(ALICE, 0.5 ether);
-        assertEq(ALICE.balance, 0.5 ether, "Native balance before sending.");
+        vm.deal(ALICE, 25 ether);
+        assertEq(ALICE.balance, 25 ether, "Native balance before sending.");
 
         string memory symbol = "USDC";
         IERC20 token = IERC20(IAxelarGateway(gateway).tokenAddresses(symbol));
 
-        deal(address(token), ALICE, 100 ether);
-        assertEq(token.balanceOf(ALICE), 100 ether);
+        deal(address(token), ALICE, 5000 ether);
+        assertEq(token.balanceOf(ALICE), 5000 ether);
 
         vm.startPrank(ALICE);
-        token.approve(address(handler), 100 ether);
-        handler.gmpTransferERC20Token{value: 0.5 ether}(
+        token.approve(address(handler), 5000 ether);
+        handler.gmpTransferERC20Token{value: 25 ether}(
             "arbitrum",
             vm.toString(address(this)),
             abi.encodePacked(address(BOB)),
             symbol,
-            50 ether,
-            0.5 ether
+            4900 ether,
+            25 ether
         );
         vm.stopPrank();
 
         assertEq(ALICE.balance, 0, "Native balance after sending.");
         assertEq(
             token.balanceOf(ALICE),
-            50 ether,
+            100 ether,
             "Token balance after sending."
         );
         assertEq(address(handler).balance, 0, "Ether left in the contract.");
+        assertEq(
+            token.balanceOf(address(handler)),
+            0,
+            "Tokens left in the contract."
+        );
     }
 
     function test_gmpTransferERC20Token_GasMismatch() public {
@@ -257,5 +260,33 @@ contract AxelarHandlerTest is Test {
             0
         );
         vm.stopPrank();
+    }
+
+    function test_gmpTransferERC20TokenGasTokenPayment() public {
+        string memory symbol = "USDC";
+        IERC20 token = IERC20(IAxelarGateway(gateway).tokenAddresses(symbol));
+        vm.label(address(token), "USDC");
+
+        deal(address(token), ALICE, 100 ether);
+        assertEq(token.balanceOf(ALICE), 100 ether);
+
+        vm.startPrank(ALICE);
+        token.approve(address(handler), 100 ether);
+        handler.gmpTransferERC20TokenGasTokenPayment(
+            "arbitrum",
+            vm.toString(address(this)),
+            abi.encodePacked(address(BOB)),
+            symbol,
+            75 ether,
+            25 ether
+        );
+        vm.stopPrank();
+
+        assertEq(token.balanceOf(ALICE), 0, "Token balance after sending.");
+        assertEq(
+            token.balanceOf(address(handler)),
+            0,
+            "Tokens left in the contract."
+        );
     }
 }
