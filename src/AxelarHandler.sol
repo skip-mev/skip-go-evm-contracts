@@ -22,6 +22,8 @@ contract AxelarHandler is AxelarExecutable {
     error ZeroAmount();
     error ZeroGasAmount();
     error ZeroNativeSent();
+    error NonNativeCannotBeUnwrapped();
+    error NativePaymentFailed();
 
     bytes32 private immutable _wETHSymbolHash;
 
@@ -131,7 +133,7 @@ contract AxelarHandler is AxelarExecutable {
         );
     }
 
-    /// @notice Sends ERC20 to other chain while calling a contract in the destination chain.
+    /// @notice Sends ERC20 to other chain while calling a contract in the destination chain and paying gas with native token.
     /// @param destinationChain name of the destination chain.
     /// @param contractAddress address of the contract that will be called in the destination chain.
     /// @param payload the payload that will be sent to the contract in the destination chain.
@@ -171,6 +173,59 @@ contract AxelarHandler is AxelarExecutable {
             msg.sender
         );
 
+        require(token.balanceOf(address(this)) >= amount, "NOT ENOUGH BALANCE");
+
+        gateway.callContractWithToken(
+            destinationChain,
+            contractAddress,
+            payload,
+            symbol,
+            amount
+        );
+    }
+
+    /// @notice Sends ERC20 to other chain while calling a contract in the destination chain and paying gas with destination token.
+    /// @param destinationChain name of the destination chain.
+    /// @param contractAddress address of the contract that will be called in the destination chain.
+    /// @param payload the payload that will be sent to the contract in the destination chain.
+    /// @param symbol the symbol of the ERC20 token to be sent.
+    /// @param amount amount of tokens to be sent.
+    /// @param gasPaymentAmount the amount of native currency that will be used for paying gas.
+    /// @dev The amount of native currency sent (msg.value) must be equal to gasPaymentAmount.
+    function gmpTransferERC20TokenGasTokenPayment(
+        string memory destinationChain, // argument passed to both child contract calls
+        string memory contractAddress, // argument passed to both child contract calls
+        bytes memory payload, // argument passed to both child contract calls
+        string memory symbol, // argument passed to both child contract calls
+        uint256 amount, // argument passed to both child contract calls
+        uint256 gasPaymentAmount // amount to send with gas payment call
+    ) external {
+        if (amount == 0) revert ZeroAmount();
+        if (gasPaymentAmount == 0) revert ZeroGasAmount();
+        if (bytes(symbol).length == 0) revert EmptySymbol();
+
+        // Get the token address.
+        IERC20 token = IERC20(_getTokenAddress(symbol));
+
+        // Transfer the amount and gas payment amount from the msg.sender.
+        token.safeTransferFrom(
+            msg.sender,
+            address(this),
+            amount + gasPaymentAmount
+        );
+
+        gasService.payGasForContractCallWithToken(
+            address(this),
+            destinationChain,
+            contractAddress,
+            payload,
+            symbol,
+            amount,
+            address(token),
+            gasPaymentAmount,
+            msg.sender
+        );
+
         gateway.callContractWithToken(
             destinationChain,
             contractAddress,
@@ -189,7 +244,8 @@ contract AxelarHandler is AxelarExecutable {
         if (token == address(0)) revert TokenNotSupported();
 
         if (!approved[token]) {
-            IERC20(token).safeApprove(address(gateway), type(uint256).max);
+            IERC20(token).approve(address(gateway), type(uint256).max);
+            IERC20(token).approve(address(gasService), type(uint256).max);
             approved[token] = true;
         }
     }
@@ -208,15 +264,31 @@ contract AxelarHandler is AxelarExecutable {
         string calldata tokenSymbol,
         uint256 amount
     ) internal override {
-        // Will the payload store any other data?
-        address destination = abi.decode(payload, (address));
+        (bool unwrap, address destination) = abi.decode(
+            payload,
+            (bool, address)
+        );
         IERC20 token = IERC20(_getTokenAddress(tokenSymbol));
 
-        if (keccak256(abi.encodePacked(tokenSymbol)) == _wETHSymbolHash) {
+        if (unwrap) {
+            // Non-native tokens cannot be unwrapped.
+            if (keccak256(abi.encodePacked(tokenSymbol)) != _wETHSymbolHash) {
+                revert NonNativeCannotBeUnwrapped();
+            }
+
+            // Unwrap native token.
             IWETH weth = IWETH(address(token));
             weth.withdraw(amount);
-        }
 
-        token.safeTransfer(destination, amount);
+            // Send it unwrapped to the destination
+            (bool success, ) = destination.call{value: amount}("");
+
+            if (!success) {
+                revert NativePaymentFailed();
+            }
+        } else {
+            // Just send the tokens received to the destination.
+            token.safeTransfer(destination, amount);
+        }
     }
 }
