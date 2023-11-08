@@ -270,12 +270,11 @@ contract AxelarHandler is AxelarExecutable {
         );
         IERC20 token = IERC20(_getTokenAddress(tokenSymbol));
 
-        if (unwrap) {
-            // Non-native tokens cannot be unwrapped.
-            if (keccak256(abi.encodePacked(tokenSymbol)) != _wETHSymbolHash) {
-                revert NonNativeCannotBeUnwrapped();
-            }
-
+        // If unwrap is set and the token can be unwrapped.
+        if (
+            unwrap &&
+            keccak256(abi.encodePacked(tokenSymbol)) != _wETHSymbolHash
+        ) {
             // Unwrap native token.
             IWETH weth = IWETH(address(token));
             weth.withdraw(amount);
@@ -286,8 +285,9 @@ contract AxelarHandler is AxelarExecutable {
             if (!success) {
                 revert NativePaymentFailed();
             }
-        } else {
-            // Just send the tokens received to the destination.
+        }
+        // Just send the tokens received to the destination.
+        else {
             token.safeTransfer(destination, amount);
         }
     }
