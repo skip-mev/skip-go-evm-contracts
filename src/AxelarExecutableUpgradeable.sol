@@ -4,12 +4,25 @@ pragma solidity ^0.8.0;
 
 import {IAxelarGateway} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGateway.sol";
 import {IAxelarExecutable} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarExecutable.sol";
+import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
-contract AxelarExecutableUpgradeable is IAxelarExecutable {
-    IAxelarGateway public immutable gateway;
+contract AxelarExecutableUpgradeable is IAxelarExecutable, Initializable {
+    IAxelarGateway public gateway;
     uint256[5] __gap;
 
-    constructor(address gateway_) {
+    function __AxelarExecutable_init(
+        address axelarGateway
+    ) internal onlyInitializing {
+        __AxelarExecutable_init_unchained(axelarGateway);
+    }
+
+    function __AxelarExecutable_init_unchained(
+        address axelarGateway
+    ) internal onlyInitializing {
+        gateway = IAxelarGateway(axelarGateway);
+    }
+
+    function initialize(address gateway_) external initializer {
         if (gateway_ == address(0)) revert InvalidAddress();
 
         gateway = IAxelarGateway(gateway_);
