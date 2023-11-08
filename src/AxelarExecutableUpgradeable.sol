@@ -10,6 +10,10 @@ contract AxelarExecutableUpgradeable is IAxelarExecutable, Initializable {
     IAxelarGateway public gateway;
     uint256[5] __gap;
 
+    constructor() {
+        _disableInitializers();
+    }
+
     function __AxelarExecutable_init(
         address axelarGateway
     ) internal onlyInitializing {

@@ -39,6 +39,10 @@ contract AxelarHandler is
 
     mapping(address => bool) public approved;
 
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(
         address axGateway,
         address axGasService,
