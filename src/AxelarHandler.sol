@@ -4,16 +4,22 @@ pragma solidity 0.8.18;
 import {IWETH} from "./interfaces/IWETH.sol";
 
 import {IAxelarGasService} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGasService.sol";
-import {AxelarExecutable} from "lib/axelar-gmp-sdk-solidity/contracts/executable/AxelarExecutable.sol";
+import {AxelarExecutableUpgradeable} from "./AxelarExecutableUpgradeable.sol";
 
-import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
+import {SafeERC20Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {Ownable2StepUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
+import {UUPSUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title AxelarHandler
 /// @notice allows to send and receive tokens to/from other chains through axelar gateway while wrapping the native tokens.
 /// @author Skip Protocol.
-contract AxelarHandler is AxelarExecutable {
-    using SafeERC20 for IERC20;
+contract AxelarHandler is
+    AxelarExecutableUpgradeable,
+    Ownable2StepUpgradeable,
+    UUPSUpgradeable
+{
+    using SafeERC20Upgradeable for IERC20Upgradeable;
 
     error EmptySymbol();
     error NativeSentDoesNotMatchAmounts();
@@ -36,7 +42,7 @@ contract AxelarHandler is AxelarExecutable {
         address axGateway,
         address axGasService,
         string memory wethSymbol
-    ) AxelarExecutable(axGateway) {
+    ) AxelarExecutableUpgradeable(axGateway) {
         if (axGasService == address(0)) revert ZeroAddress();
         if (bytes(wethSymbol).length == 0) revert EmptySymbol();
 
@@ -83,7 +89,7 @@ contract AxelarHandler is AxelarExecutable {
         if (amount == 0) revert ZeroAmount();
         if (bytes(symbol).length == 0) revert EmptySymbol();
 
-        IERC20 token = IERC20(_getTokenAddress(symbol));
+        IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(symbol));
 
         token.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -156,7 +162,7 @@ contract AxelarHandler is AxelarExecutable {
         if (bytes(symbol).length == 0) revert EmptySymbol();
 
         // Get the token address.
-        IERC20 token = IERC20(_getTokenAddress(symbol));
+        IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(symbol));
 
         // Transfer the amount from the msg.sender.
         token.safeTransferFrom(msg.sender, address(this), amount);
@@ -205,7 +211,7 @@ contract AxelarHandler is AxelarExecutable {
         if (bytes(symbol).length == 0) revert EmptySymbol();
 
         // Get the token address.
-        IERC20 token = IERC20(_getTokenAddress(symbol));
+        IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(symbol));
 
         // Transfer the amount and gas payment amount from the msg.sender.
         token.safeTransferFrom(
@@ -244,8 +250,14 @@ contract AxelarHandler is AxelarExecutable {
         if (token == address(0)) revert TokenNotSupported();
 
         if (!approved[token]) {
-            IERC20(token).approve(address(gateway), type(uint256).max);
-            IERC20(token).approve(address(gasService), type(uint256).max);
+            IERC20Upgradeable(token).approve(
+                address(gateway),
+                type(uint256).max
+            );
+            IERC20Upgradeable(token).approve(
+                address(gasService),
+                type(uint256).max
+            );
             approved[token] = true;
         }
     }
@@ -268,7 +280,9 @@ contract AxelarHandler is AxelarExecutable {
             payload,
             (bool, address)
         );
-        IERC20 token = IERC20(_getTokenAddress(tokenSymbol));
+        IERC20Upgradeable token = IERC20Upgradeable(
+            _getTokenAddress(tokenSymbol)
+        );
 
         // If unwrap is set and the token can be unwrapped.
         if (
@@ -291,4 +305,8 @@ contract AxelarHandler is AxelarExecutable {
             token.safeTransfer(destination, amount);
         }
     }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 }

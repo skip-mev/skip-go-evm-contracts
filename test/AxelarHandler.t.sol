@@ -8,7 +8,7 @@ import {AxelarHandler} from "src/AxelarHandler.sol";
 
 import {IAxelarGateway} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGateway.sol";
 
-import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {IERC20Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
 
 contract AxelarHandlerTest is Test {
     address public immutable ALICE = makeAddr("ALICE");
@@ -62,7 +62,9 @@ contract AxelarHandlerTest is Test {
 
     function test_sendERC20Token() public {
         string memory symbol = "USDC";
-        IERC20 token = IERC20(IAxelarGateway(gateway).tokenAddresses(symbol));
+        IERC20Upgradeable token = IERC20Upgradeable(
+            IAxelarGateway(gateway).tokenAddresses(symbol)
+        );
 
         deal(address(token), ALICE, 100 ether);
         assertEq(
@@ -99,7 +101,9 @@ contract AxelarHandlerTest is Test {
 
     function test_sendERC20Token_NoAllowance() public {
         string memory symbol = "USDC";
-        IERC20 token = IERC20(IAxelarGateway(gateway).tokenAddresses(symbol));
+        IERC20Upgradeable token = IERC20Upgradeable(
+            IAxelarGateway(gateway).tokenAddresses(symbol)
+        );
 
         deal(address(token), ALICE, 100 ether);
         assertEq(token.balanceOf(ALICE), 100 ether, "Balance before sending.");
@@ -183,7 +187,9 @@ contract AxelarHandlerTest is Test {
         assertEq(ALICE.balance, 25 ether, "Native balance before sending.");
 
         string memory symbol = "USDC";
-        IERC20 token = IERC20(IAxelarGateway(gateway).tokenAddresses(symbol));
+        IERC20Upgradeable token = IERC20Upgradeable(
+            IAxelarGateway(gateway).tokenAddresses(symbol)
+        );
 
         deal(address(token), ALICE, 5000 ether);
         assertEq(token.balanceOf(ALICE), 5000 ether);
@@ -219,7 +225,9 @@ contract AxelarHandlerTest is Test {
         assertEq(ALICE.balance, 0.5 ether, "Native balance before sending.");
 
         string memory symbol = "USDC";
-        IERC20 token = IERC20(IAxelarGateway(gateway).tokenAddresses(symbol));
+        IERC20Upgradeable token = IERC20Upgradeable(
+            IAxelarGateway(gateway).tokenAddresses(symbol)
+        );
 
         deal(address(token), ALICE, 100 ether);
         assertEq(token.balanceOf(ALICE), 100 ether);
@@ -243,7 +251,9 @@ contract AxelarHandlerTest is Test {
         assertEq(ALICE.balance, 0.5 ether, "Native balance before sending.");
 
         string memory symbol = "USDC";
-        IERC20 token = IERC20(IAxelarGateway(gateway).tokenAddresses(symbol));
+        IERC20Upgradeable token = IERC20Upgradeable(
+            IAxelarGateway(gateway).tokenAddresses(symbol)
+        );
 
         deal(address(token), ALICE, 100 ether);
         assertEq(token.balanceOf(ALICE), 100 ether);
@@ -264,7 +274,9 @@ contract AxelarHandlerTest is Test {
 
     function test_gmpTransferERC20TokenGasTokenPayment() public {
         string memory symbol = "USDC";
-        IERC20 token = IERC20(IAxelarGateway(gateway).tokenAddresses(symbol));
+        IERC20Upgradeable token = IERC20Upgradeable(
+            IAxelarGateway(gateway).tokenAddresses(symbol)
+        );
         vm.label(address(token), "USDC");
 
         deal(address(token), ALICE, 100 ether);
