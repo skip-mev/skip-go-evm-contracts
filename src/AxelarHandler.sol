@@ -10,6 +10,7 @@ import {IERC20Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contract
 import {SafeERC20Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import {Ownable2StepUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 /// @title AxelarHandler
 /// @notice allows to send and receive tokens to/from other chains through axelar gateway while wrapping the native tokens.
@@ -31,20 +32,24 @@ contract AxelarHandler is
     error NonNativeCannotBeUnwrapped();
     error NativePaymentFailed();
 
-    bytes32 private immutable _wETHSymbolHash;
+    bytes32 private _wETHSymbolHash;
 
     string public wETHSymbol;
     IAxelarGasService public gasService;
 
     mapping(address => bool) public approved;
 
-    constructor(
+    function initialize(
         address axGateway,
         address axGasService,
         string memory wethSymbol
-    ) AxelarExecutableUpgradeable(axGateway) {
+    ) external initializer {
         if (axGasService == address(0)) revert ZeroAddress();
         if (bytes(wethSymbol).length == 0) revert EmptySymbol();
+
+        __AxelarExecutable_init(axGateway);
+        __Ownable2Step_init();
+        __UUPSUpgradeable_init();
 
         gasService = IAxelarGasService(axGasService);
         wETHSymbol = wethSymbol;
@@ -240,6 +245,10 @@ contract AxelarHandler is
             amount
         );
     }
+
+    receive() external payable {}
+
+    fallback() external payable {}
 
     /// @notice Ensures a token is supported by the axelar gateway, and returns it's address.
     /// @param symbol the symbol of the ERC20 token to be checked.
