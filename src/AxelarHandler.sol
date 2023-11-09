@@ -300,7 +300,7 @@ contract AxelarHandler is
         // If unwrap is set and the token can be unwrapped.
         if (
             unwrap &&
-            keccak256(abi.encodePacked(tokenSymbol)) != _wETHSymbolHash
+            keccak256(abi.encodePacked(tokenSymbol)) == _wETHSymbolHash
         ) {
             // Unwrap native token.
             IWETH weth = IWETH(address(token));
