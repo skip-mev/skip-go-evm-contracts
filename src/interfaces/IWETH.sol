@@ -3,12 +3,12 @@
 // Adapted by Ethereum Community 2021
 pragma solidity ^0.8.0;
 
-import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {IERC20Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
 
 /// @dev Wrapped Ether v10 (WETH10) is an Ether (ETH) ERC-20 wrapper. You can `deposit` ETH and obtain a WETH10 balance which can then be operated as an ERC-20 token. You can
 /// `withdraw` ETH from WETH10, which will then burn WETH10 token in your wallet. The amount of WETH10 token in any wallet is always identical to the
 /// balance of ETH deposited minus the ETH withdrawn with that specific wallet.
-interface IWETH is IERC20 {
+interface IWETH is IERC20Upgradeable {
     /// @dev `msg.value` of ETH sent to this contract grants caller account a matching increase in WETH10 token balance.
     /// Emits {Transfer} event to reflect WETH10 token mint of `msg.value` from `address(0)` to caller account.
     function deposit() external payable;

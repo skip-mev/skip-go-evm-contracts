@@ -6,6 +6,8 @@ import {Environment} from "test/Environment.sol";
 
 import {AxelarHandler} from "src/AxelarHandler.sol";
 
+import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 contract AxelarHandlerDeploymentScript is Script {
     Environment public env;
     AxelarHandler public handler;
@@ -22,7 +24,12 @@ contract AxelarHandlerDeploymentScript is Script {
         string memory wethSymbol = env.wethSymbol();
 
         vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
-        handler = new AxelarHandler(gateway, gasService, wethSymbol);
+        AxelarHandler handlerImpl = new AxelarHandler();
+        ERC1967Proxy handlerProxy = new ERC1967Proxy(
+            address(handlerImpl),
+            abi.encodeWithSignature("initialize(address,address,string)")
+        );
+        handler = AxelarHandler(payable(address(handlerProxy)));
         vm.stopBroadcast();
 
         console2.log("Axelar Handler Address: ", address(handler));
