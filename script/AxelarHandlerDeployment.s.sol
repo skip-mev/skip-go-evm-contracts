@@ -27,7 +27,12 @@ contract AxelarHandlerDeploymentScript is Script {
         AxelarHandler handlerImpl = new AxelarHandler();
         ERC1967Proxy handlerProxy = new ERC1967Proxy(
             address(handlerImpl),
-            abi.encodeWithSignature("initialize(address,address,string)")
+            abi.encodeWithSignature(
+                "initialize(address,address,string)",
+                gateway,
+                gasService,
+                wethSymbol
+            )
         );
         handler = AxelarHandler(payable(address(handlerProxy)));
         vm.stopBroadcast();
