@@ -9,6 +9,7 @@ import {AxelarHandler} from "src/AxelarHandler.sol";
 import {IAxelarGateway} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGateway.sol";
 
 import {IERC20Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
+import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract AxelarHandlerTest is Test {
     address public immutable ALICE = makeAddr("ALICE");
@@ -30,7 +31,17 @@ contract AxelarHandlerTest is Test {
         address gasService = 0x2d5d7d31F671F86C782533cc367F14109a082712;
         string memory wethSymbol = "WETH";
 
-        handler = new AxelarHandler(address(gateway), gasService, wethSymbol);
+        AxelarHandler handlerImpl = new AxelarHandler();
+        ERC1967Proxy handlerProxy = new ERC1967Proxy(
+            address(handlerImpl),
+            abi.encodeWithSignature(
+                "initialize(address,address,string)",
+                address(gateway),
+                gasService,
+                wethSymbol
+            )
+        );
+        handler = AxelarHandler(payable(address(handlerProxy)));
 
         vm.label(address(handler), "HANDLER");
         vm.label(address(gateway), "GATEWAY");
@@ -301,4 +312,23 @@ contract AxelarHandlerTest is Test {
             "Tokens left in the contract."
         );
     }
+
+    function test_payload() public {
+        bytes memory payload = abi.encode(
+            true,
+            address(0x24a9267cE9e0a8F4467B584FDDa12baf1Df772B5)
+        );
+
+        console2.logBytes(payload);
+
+        (bool unwrap, address destination) = abi.decode(
+            payload,
+            (bool, address)
+        );
+
+        assertEq(unwrap, true);
+        assertEq(destination, 0x24a9267cE9e0a8F4467B584FDDa12baf1Df772B5);
+    }
+
+    function test_WETHSymbolHash() public {}
 }
