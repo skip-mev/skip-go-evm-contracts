@@ -33,15 +33,15 @@ contract AxelarHandler is
     error NativePaymentFailed();
     error WrappingNotEnabled();
 
-    bytes public constant DISABLED_SYMBOL =
-        keccak256(abi.encodePacked("DISABLED"));
-
     bytes32 private _wETHSymbolHash;
 
     string public wETHSymbol;
     IAxelarGasService public gasService;
 
     mapping(address => bool) public approved;
+
+    bytes32 public constant DISABLED_SYMBOL =
+        keccak256(abi.encodePacked("DISABLED"));
 
     constructor() {
         _disableInitializers();
@@ -60,6 +60,13 @@ contract AxelarHandler is
         __UUPSUpgradeable_init();
 
         gasService = IAxelarGasService(axGasService);
+        wETHSymbol = wethSymbol;
+        _wETHSymbolHash = keccak256(abi.encodePacked(wethSymbol));
+    }
+
+    function setWETHSybol(string memory wethSymbol) external {
+        if (bytes(wethSymbol).length == 0) revert EmptySymbol();
+
         wETHSymbol = wethSymbol;
         _wETHSymbolHash = keccak256(abi.encodePacked(wethSymbol));
     }
@@ -306,7 +313,7 @@ contract AxelarHandler is
         // If unwrap is set and the token can be unwrapped.
         if (
             unwrap &&
-            _wETHSymbolHash != DISABLED_SYMBOL
+            _wETHSymbolHash != DISABLED_SYMBOL &&
             keccak256(abi.encodePacked(tokenSymbol)) == _wETHSymbolHash
         ) {
             // Unwrap native token.
