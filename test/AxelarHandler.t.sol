@@ -3,8 +3,10 @@ pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
 import "./Environment.sol";
+import "./mocks/MockGateway.sol";
 
 import {AxelarHandler} from "src/AxelarHandler.sol";
+import {IAxelarExecutable} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarExecutable.sol";
 
 import {IAxelarGateway} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGateway.sol";
 
@@ -313,22 +315,161 @@ contract AxelarHandlerTest is Test {
         );
     }
 
-    function test_payload() public {
-        bytes memory payload = abi.encode(
-            true,
-            address(0x24a9267cE9e0a8F4467B584FDDa12baf1Df772B5)
+    function test_executeWithToken_nonunwrap_nonWETH() public {
+        string memory symbol = "USDC";
+        IERC20Upgradeable token = IERC20Upgradeable(
+            IAxelarGateway(gateway).tokenAddresses(symbol)
+        );
+        vm.label(address(token), "USDC");
+
+        deal(address(token), address(this), 100 ether);
+        token.transfer(address(handler), 100 ether);
+
+        assertEq(
+            token.balanceOf(address(handler)),
+            100 ether,
+            "Handler balance before"
         );
 
-        console2.logBytes(payload);
+        assertEq(token.balanceOf(ALICE), 0, "Alice balance before");
 
-        (bool unwrap, address destination) = abi.decode(
+        deployCodeTo("MockGateway.sol", address(gateway));
+        MockGateway mockGateway = MockGateway(address(gateway));
+        mockGateway.saveTokenAddress(symbol, address(token));
+
+        bytes memory payload = abi.encode(true, ALICE);
+
+        handler.executeWithToken(
+            keccak256(abi.encodePacked("COMMAND_ID")),
+            "osmosis-7",
+            "mock_address",
             payload,
-            (bool, address)
+            symbol,
+            100 ether
         );
 
-        assertEq(unwrap, true);
-        assertEq(destination, 0x24a9267cE9e0a8F4467B584FDDa12baf1Df772B5);
+        assertEq(token.balanceOf(address(handler)), 0, "Handler balance after");
+
+        assertEq(token.balanceOf(ALICE), 100 ether, "Alice balance after");
     }
 
-    function test_WETHSymbolHash() public {}
+    function test_executeWithToken_unwrap_nonWETH() public {
+        string memory symbol = "USDC";
+        IERC20Upgradeable token = IERC20Upgradeable(
+            IAxelarGateway(gateway).tokenAddresses(symbol)
+        );
+        vm.label(address(token), "USDC");
+
+        deal(address(token), address(this), 100 ether);
+        token.transfer(address(handler), 100 ether);
+
+        assertEq(
+            token.balanceOf(address(handler)),
+            100 ether,
+            "Handler balance before"
+        );
+
+        assertEq(token.balanceOf(ALICE), 0, "Alice balance before");
+
+        deployCodeTo("MockGateway.sol", address(gateway));
+        MockGateway mockGateway = MockGateway(address(gateway));
+        mockGateway.saveTokenAddress(symbol, address(token));
+
+        bytes memory payload = abi.encode(false, ALICE);
+
+        handler.executeWithToken(
+            keccak256(abi.encodePacked("COMMAND_ID")),
+            "osmosis-7",
+            "mock_address",
+            payload,
+            symbol,
+            100 ether
+        );
+
+        assertEq(token.balanceOf(address(handler)), 0, "Handler balance after");
+
+        assertEq(token.balanceOf(ALICE), 100 ether, "Alice balance after");
+    }
+
+    function test_executeWithToken_unwrap_WETH() public {
+        string memory symbol = "WETH";
+        IERC20Upgradeable token = IERC20Upgradeable(
+            IAxelarGateway(gateway).tokenAddresses(symbol)
+        );
+        vm.label(address(token), "WETH");
+
+        deal(address(token), address(this), 100 ether);
+        token.transfer(address(handler), 100 ether);
+
+        assertEq(
+            token.balanceOf(address(handler)),
+            100 ether,
+            "Handler balance before"
+        );
+
+        assertEq(token.balanceOf(ALICE), 0, "Alice token balance before");
+        assertEq(ALICE.balance, 0, "Alice native balance before");
+
+        deployCodeTo("MockGateway.sol", address(gateway));
+        MockGateway mockGateway = MockGateway(address(gateway));
+        mockGateway.saveTokenAddress(symbol, address(token));
+
+        bytes memory payload = abi.encode(true, ALICE);
+
+        handler.executeWithToken(
+            keccak256(abi.encodePacked("COMMAND_ID")),
+            "osmosis-7",
+            "mock_address",
+            payload,
+            symbol,
+            100 ether
+        );
+
+        assertEq(token.balanceOf(address(handler)), 0, "Handler balance after");
+        assertEq(token.balanceOf(ALICE), 0, "Alice token balance after");
+        assertEq(ALICE.balance, 100 ether, "Alice native balance after");
+    }
+
+    function test_executeWithToken_nonunwrap_WETH() public {
+        string memory symbol = "WETH";
+        IERC20Upgradeable token = IERC20Upgradeable(
+            IAxelarGateway(gateway).tokenAddresses(symbol)
+        );
+        vm.label(address(token), "WETH");
+
+        deal(address(token), address(this), 100 ether);
+        token.transfer(address(handler), 100 ether);
+
+        assertEq(
+            token.balanceOf(address(handler)),
+            100 ether,
+            "Handler balance before"
+        );
+
+        assertEq(token.balanceOf(ALICE), 0, "Alice token balance before");
+        assertEq(ALICE.balance, 0, "Alice native balance before");
+
+        deployCodeTo("MockGateway.sol", address(gateway));
+        MockGateway mockGateway = MockGateway(address(gateway));
+        mockGateway.saveTokenAddress(symbol, address(token));
+
+        bytes memory payload = abi.encode(false, ALICE);
+
+        handler.executeWithToken(
+            keccak256(abi.encodePacked("COMMAND_ID")),
+            "osmosis-7",
+            "mock_address",
+            payload,
+            symbol,
+            100 ether
+        );
+
+        assertEq(token.balanceOf(address(handler)), 0, "Handler balance after");
+        assertEq(
+            token.balanceOf(ALICE),
+            100 ether,
+            "Alice token balance after"
+        );
+        assertEq(ALICE.balance, 0, "Alice native balance after");
+    }
 }

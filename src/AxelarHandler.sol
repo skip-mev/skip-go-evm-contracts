@@ -31,6 +31,7 @@ contract AxelarHandler is
     error ZeroNativeSent();
     error NonNativeCannotBeUnwrapped();
     error NativePaymentFailed();
+    error WrappingNotEnabled();
 
     bytes32 private _wETHSymbolHash;
 
@@ -38,6 +39,9 @@ contract AxelarHandler is
     IAxelarGasService public gasService;
 
     mapping(address => bool) public approved;
+
+    bytes32 public constant DISABLED_SYMBOL =
+        keccak256(abi.encodePacked("DISABLED"));
 
     constructor() {
         _disableInitializers();
@@ -60,6 +64,13 @@ contract AxelarHandler is
         _wETHSymbolHash = keccak256(abi.encodePacked(wethSymbol));
     }
 
+    function setWETHSybol(string memory wethSymbol) external {
+        if (bytes(wethSymbol).length == 0) revert EmptySymbol();
+
+        wETHSymbol = wethSymbol;
+        _wETHSymbolHash = keccak256(abi.encodePacked(wethSymbol));
+    }
+
     /// @notice Sends native currency to other chains through the axelar gateway.
     /// @param destinationChain name of the destination chain.
     /// @param destinationAddress address of the destination wallet in string form.
@@ -67,6 +78,7 @@ contract AxelarHandler is
         string memory destinationChain,
         string memory destinationAddress
     ) external payable {
+        if (_wETHSymbolHash == DISABLED_SYMBOL) revert WrappingNotEnabled();
         if (msg.value == 0) revert ZeroNativeSent();
 
         // Get the token address from the gateway.
@@ -119,6 +131,7 @@ contract AxelarHandler is
         uint256 amount, // argument passed to both child contract calls
         uint256 gasPaymentAmount
     ) external payable {
+        if (_wETHSymbolHash == DISABLED_SYMBOL) revert WrappingNotEnabled();
         if (amount == 0) revert ZeroAmount();
         if (gasPaymentAmount == 0) revert ZeroGasAmount();
         if (msg.value != amount + gasPaymentAmount)
@@ -300,6 +313,7 @@ contract AxelarHandler is
         // If unwrap is set and the token can be unwrapped.
         if (
             unwrap &&
+            _wETHSymbolHash != DISABLED_SYMBOL &&
             keccak256(abi.encodePacked(tokenSymbol)) == _wETHSymbolHash
         ) {
             // Unwrap native token.
