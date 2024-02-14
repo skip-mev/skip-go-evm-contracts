@@ -11,7 +11,7 @@ contract AxelarHandlerUpgradeScript is Script {
     function setUp() public {
         vm.createSelectFork(vm.envString("RPC_URL"));
         handler = AxelarHandler(
-            payable(0xf35f19BdA0cceD525E0cE1aD5f5e5666437c7664)
+            payable(0xD397883c12b71ea39e0d9f6755030205f31A1c96)
         );
     }
 

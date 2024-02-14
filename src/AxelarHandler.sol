@@ -276,11 +276,11 @@ contract AxelarHandler is
         if (token == address(0)) revert TokenNotSupported();
 
         if (!approved[token]) {
-            IERC20Upgradeable(token).approve(
+            IERC20Upgradeable(token).safeApprove(
                 address(gateway),
                 type(uint256).max
             );
-            IERC20Upgradeable(token).approve(
+            IERC20Upgradeable(token).safeApprove(
                 address(gasService),
                 type(uint256).max
             );
