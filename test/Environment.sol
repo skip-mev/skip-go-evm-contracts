@@ -34,6 +34,8 @@ contract Environment is Test {
         0xe432150cce91c13a887f7D836923d5597adD8E31;
     address public constant AXELAR_GATEWAY_POLYGON_MUMBAI =
         0xBF62ef1486468a6bd26Dd669C06db43dEd5B849B;
+    address public constant AXELAR_GATEWAY_ETHEREUM_GOERLI =
+        0xe432150cce91c13a887f7D836923d5597adD8E31;
 
     address public constant AXELAR_GAS_SERVICE_MAINNET =
         0x2d5d7d31F671F86C782533cc367F14109a082712;
@@ -65,6 +67,8 @@ contract Environment is Test {
         0x2d5d7d31F671F86C782533cc367F14109a082712;
     address public constant AXELAR_GAS_SERVICE_POLYGON_MUMBAI =
         0xbE406F0189A0B4cf3A05C286473D23791Dd44Cc6;
+    address public constant AXELAR_GAS_SERVICE_ETHEREUM_GOERLI =
+        0xbE406F0189A0B4cf3A05C286473D23791Dd44Cc6;
 
     string public constant AXELAR_WETH_SYMBOL_MAINNET = "WETH";
     string public constant AXELAR_WETH_SYMBOL_BNB = "WBNB";
@@ -81,6 +85,7 @@ contract Environment is Test {
     string public constant AXELAR_WETH_SYMBOL_FILECOIN = "WFIL";
     string public constant AXELAR_WETH_SYMBOL_KAVA = "axlETH";
     string public constant AXELAR_WETH_SYMBOL_POLYGON_MUMBAI = "WMATIC";
+    string public constant AXELAR_WETH_SYMBOL_ETHEREUM_GOERLI = "WETH";
 
     address public gateway;
     address public gasService;
@@ -147,6 +152,10 @@ contract Environment is Test {
             gateway = AXELAR_GATEWAY_POLYGON_MUMBAI;
             gasService = AXELAR_GAS_SERVICE_POLYGON_MUMBAI;
             wethSymbol = AXELAR_WETH_SYMBOL_POLYGON_MUMBAI;
+        } else if (chainId == 5) {
+            gateway = AXELAR_GATEWAY_ETHEREUM_GOERLI;
+            gasService = AXELAR_GAS_SERVICE_ETHEREUM_GOERLI;
+            wethSymbol = AXELAR_WETH_SYMBOL_ETHEREUM_GOERLI;
         } else {
             revert("CHAIN UNSUPPORTED");
         }
