@@ -13,3 +13,6 @@
 [submodule "CCTPRelayer/lib/forge-std"]
 	path = CCTPRelayer/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "CCTPRelayer/lib/openzeppelin-contracts"]
+	path = CCTPRelayer/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
