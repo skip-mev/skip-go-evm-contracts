@@ -1,66 +1,48 @@
-## Foundry
+<!-- ABOUT THE PROJECT -->
+## Skip CCTP Relayer
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
 
-Foundry consists of:
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+<!-- GETTING STARTED -->
+## Getting Started
 
-## Documentation
+### Prerequisites
+In order to build and run the project both solidity and foundry are required:
 
-https://book.getfoundry.sh/
+* solidity
+  ```sh
+  npm install -g solc
+  ```
+* foundry
+  ```sh
+  curl -L https://foundry.paradigm.xyz | bash
+  foundryup
+  ```
 
-## Usage
+### Usage
 
-### Build
+1. Clone the repo
+   ```sh
+   git clone https://github.com/skip-mev/skip-api-evm-contracts
+   ```
+2. Run tests:
+   ```sh
+   cd ./CTTPRelayer
+   forge test
+   ```
 
-```shell
-$ forge build
-```
+3. Set your RPC urls as environment variables for tests to work:
+    ```sh
+   export PRIVATE_KEY=<key>
+   export RPC_URL=<url>
+   ```
 
-### Test
+4. Test deployment:
+   ```sh
+   forge script ./script/Deployment.s.sol --fork-url "RPC URL" --private-key "DEPLOYMENT ACCOUNT PRIVATE KEY"
+   ```
 
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+5. If you want to broadcast the transaction and deploy add --broadcast to the command:
+   ```sh
+   forge script ./script/Deployment.s.sol --fork-url "RPC URL" --private-key "DEPLOYMENT ACCOUNT PRIVATE KEY" --broadcast
+   ```
