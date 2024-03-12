@@ -37,3 +37,10 @@ jobs:
           forge test --root ./AxelarHandler -vvv
           forge test --root ./CCTPRelayer -vvv
         id: test
+        env:
+          RPC_MAINNET: https://eth.llamarpc.com
+          RPC_AVALANCHE : https://avalanche.drpc.org
+          RPC_OP : https://optimism.llamarpc.com
+          RPC_ARBITRUM : https://arbitrum.llamarpc.com
+          RPC_BASE: https://base.llamarpc.com
+          RPC_POLYGON : https://polygon.llamarpc.com
