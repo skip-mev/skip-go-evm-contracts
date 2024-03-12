@@ -30,42 +30,42 @@ contract CCTPRelayerTest is Test {
     mapping(uint256 => IMessageTransmitter) public transmitters;
 
     function setUp() public {
-        uint256 id = vm.createSelectFork(vm.envString("RPC_MAINNET"));
+        uint256 id = vm.createSelectFork(vm.envString("RPC_MAINNET"), 19421470);
         usdcs[id] = IERC20(USDC_MAINNET);
         messengers[id] = ITokenMessenger(MESSENGER_MAINNET);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_MAINNET);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_AVALANCHE"));
+        id = vm.createSelectFork(vm.envString("RPC_AVALANCHE"), 42820450);
         usdcs[id] = IERC20(USDC_AVALANCHE);
         messengers[id] = ITokenMessenger(MESSENGER_AVALANCHE);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_AVALANCHE);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_OP"));
+        id = vm.createSelectFork(vm.envString("RPC_OP"), 117339078);
         usdcs[id] = IERC20(USDC_OP);
         messengers[id] = ITokenMessenger(MESSENGER_OP);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_OP);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_ARBITRUM"));
+        id = vm.createSelectFork(vm.envString("RPC_ARBITRUM"), 189738155);
         usdcs[id] = IERC20(USDC_ARBITRUM);
         messengers[id] = ITokenMessenger(MESSENGER_ARBITRUM);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_ARBITRUM);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_BASE"));
+        id = vm.createSelectFork(vm.envString("RPC_BASE"), 11743812);
         usdcs[id] = IERC20(USDC_BASE);
         messengers[id] = ITokenMessenger(MESSENGER_BASE);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_BASE);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_POLYGON"));
+        id = vm.createSelectFork(vm.envString("RPC_POLYGON"), 54583257);
         usdcs[id] = IERC20(USDC_POLYGON);
         messengers[id] = ITokenMessenger(MESSENGER_POLYGON);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_POLYGON);
