@@ -34,8 +34,8 @@ jobs:
 
       - name: Run Forge tests
         run: |
-          forge test --root ./AxelarHandler -vvv --compute-units-per-second 100
-          forge test --root ./CCTPRelayer -vvv --compute-units-per-second 100
+          forge test --root ./AxelarHandler -vvv --compute-units-per-second 100 --fork-url https://eth.llamarpc.com
+          forge test --root ./CCTPRelayer -vvv --compute-units-per-second 100 --fork-url https://eth.llamarpc.com
         id: test
         env:
           RPC_MAINNET: https://eth.llamarpc.com
