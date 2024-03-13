@@ -12,6 +12,7 @@ import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/E
 
 contract CCTPRelayerTest is Test {
     using stdStorage for StdStorage;
+    using stdJson for string;
 
     address public ACTOR_1 = makeAddr("ACTOR 1");
 
@@ -30,84 +31,86 @@ contract CCTPRelayerTest is Test {
     mapping(uint256 => IMessageTransmitter) public transmitters;
 
     function setUp() public {
-        uint256 id = vm.createSelectFork(vm.envString("RPC_MAINNET"));
+        string memory rpcsJson = vm.envString("RPC_ENDPOINTS");
+
+        uint256 id = vm.createSelectFork(rpcsJson.readString(".ethereum-mainnet"));
         usdcs[id] = IERC20(USDC_MAINNET);
         messengers[id] = ITokenMessenger(MESSENGER_MAINNET);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_MAINNET);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_AVALANCHE"));
+        id = vm.createSelectFork(rpcsJson.readString(".avalanche-mainnet"));
         usdcs[id] = IERC20(USDC_AVALANCHE);
         messengers[id] = ITokenMessenger(MESSENGER_AVALANCHE);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_AVALANCHE);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_OP"));
+        id = vm.createSelectFork(rpcsJson.readString(".op-mainnet"));
         usdcs[id] = IERC20(USDC_OP);
         messengers[id] = ITokenMessenger(MESSENGER_OP);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_OP);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_ARBITRUM"));
+        id = vm.createSelectFork(rpcsJson.readString(".arbitrum-mainnet"));
         usdcs[id] = IERC20(USDC_ARBITRUM);
         messengers[id] = ITokenMessenger(MESSENGER_ARBITRUM);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_ARBITRUM);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_BASE"));
+        id = vm.createSelectFork(rpcsJson.readString(".base-mainnet"));
         usdcs[id] = IERC20(USDC_BASE);
         messengers[id] = ITokenMessenger(MESSENGER_BASE);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_BASE);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_POLYGON"));
+        id = vm.createSelectFork(rpcsJson.readString(".polygon-mainnet"));
         usdcs[id] = IERC20(USDC_POLYGON);
         messengers[id] = ITokenMessenger(MESSENGER_POLYGON);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_POLYGON);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_TESTNET"));
+        id = vm.createSelectFork(rpcsJson.readString(".ethereum-testnet"));
         usdcs[id] = IERC20(USDC_SEPOLIA);
         messengers[id] = ITokenMessenger(MESSENGER_SEPOLIA);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_SEPOLIA);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_AVALANCHE_TESTNET"));
+        id = vm.createSelectFork(rpcsJson.readString(".avalanche-testnet"));
         usdcs[id] = IERC20(USDC_AVALANCHE_FUJI);
         messengers[id] = ITokenMessenger(MESSENGER_AVALANCHE_FUJI);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_AVALANCHE_FUJI);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_OP_TESTNET"));
+        id = vm.createSelectFork(rpcsJson.readString(".op-testnet"));
         usdcs[id] = IERC20(USDC_OP_SEPOLIA);
         messengers[id] = ITokenMessenger(MESSENGER_OP_SEPOLIA);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_OP_SEPOLIA);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_ARBITRUM_TESTNET"));
+        id = vm.createSelectFork(rpcsJson.readString(".arbitrum-testnet"));
         usdcs[id] = IERC20(USDC_ARBITRUM_SEPOLIA);
         messengers[id] = ITokenMessenger(MESSENGER_ARBITRUM_SEPOLIA);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_ARBITRUM_SEPOLIA);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_BASE_TESTNET"));
+        id = vm.createSelectFork(rpcsJson.readString(".base-testnet"));
         usdcs[id] = IERC20(USDC_BASE_SEPOLIA);
         messengers[id] = ITokenMessenger(MESSENGER_BASE_SEPOLIA);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_BASE_SEPOLIA);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_POLYGON_TESTNET"));
+        id = vm.createSelectFork(rpcsJson.readString(".polygon-testnet"));
         usdcs[id] = IERC20(USDC_POLYGON_MUMBAI);
         messengers[id] = ITokenMessenger(MESSENGER_POLYGON_MUMBAI);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_POLYGON_MUMBAI);
