@@ -12,6 +12,19 @@ jobs:
   check:
     strategy:
       fail-fast: true
+    env:
+      RPC_MAINNET: ${{ secrets.ethereum-mainnet }}
+      RPC_AVALANCHE: ${{ secrets.avalanche-mainnet }}
+      RPC_OP: ${{ secrets.op-mainnet }}
+      RPC_ARBITRUM: ${{ secrets.arbitrum-mainnet }}
+      RPC_BASE: ${{ secrets.base-mainnet }}
+      RPC_POLYGON: ${{ secrets.polygon-mainnet }}
+      RPC_TESTNET: ${{ secrets.ethereum-testnet }}
+      RPC_AVALANCHE_TESTNET : ${{ secrets.avalanche-testnet }}
+      RPC_OP_TESTNET : ${{ secrets.op-testnet }}
+      RPC_ARBITRUM_TESTNET : ${{ secrets.arbitrum-testnet }}
+      RPC_BASE_TESTNET : ${{ secrets.base-testnet }}
+      RPC_POLYGON_TESTNET : ${{ secrets.polygon-testnet }}
 
     name: Foundry project
     runs-on: ubuntu-latest
@@ -38,7 +51,7 @@ jobs:
           forge test --root ./CCTPRelayer -vvv --compute-units-per-second 100 --fork-url https://eth.llamarpc.com
         id: test
         env:
-          RPC_MAINNET: https://eth.llamarpc.com
+          RPC_MAINNET: ${{ secrets.MainnetRpc }}
           RPC_AVALANCHE : https://avalanche.drpc.org
           RPC_OP : https://optimism.llamarpc.com
           RPC_ARBITRUM : https://arbitrum.llamarpc.com
