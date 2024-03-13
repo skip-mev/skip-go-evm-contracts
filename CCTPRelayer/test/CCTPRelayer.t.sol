@@ -30,45 +30,87 @@ contract CCTPRelayerTest is Test {
     mapping(uint256 => IMessageTransmitter) public transmitters;
 
     function setUp() public {
-        uint256 id = vm.createSelectFork(vm.envString("RPC_MAINNET"), 19421470);
+        uint256 id = vm.createSelectFork(vm.envString("RPC_MAINNET"));
         usdcs[id] = IERC20(USDC_MAINNET);
         messengers[id] = ITokenMessenger(MESSENGER_MAINNET);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_MAINNET);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_AVALANCHE"), 42820450);
+        id = vm.createSelectFork(vm.envString("RPC_AVALANCHE"));
         usdcs[id] = IERC20(USDC_AVALANCHE);
         messengers[id] = ITokenMessenger(MESSENGER_AVALANCHE);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_AVALANCHE);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_OP"), 117339078);
+        id = vm.createSelectFork(vm.envString("RPC_OP"));
         usdcs[id] = IERC20(USDC_OP);
         messengers[id] = ITokenMessenger(MESSENGER_OP);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_OP);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_ARBITRUM"), 189738155);
+        id = vm.createSelectFork(vm.envString("RPC_ARBITRUM"));
         usdcs[id] = IERC20(USDC_ARBITRUM);
         messengers[id] = ITokenMessenger(MESSENGER_ARBITRUM);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_ARBITRUM);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_BASE"), 11743812);
+        id = vm.createSelectFork(vm.envString("RPC_BASE"));
         usdcs[id] = IERC20(USDC_BASE);
         messengers[id] = ITokenMessenger(MESSENGER_BASE);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_BASE);
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(vm.envString("RPC_POLYGON"), 54583257);
+        id = vm.createSelectFork(vm.envString("RPC_POLYGON"));
         usdcs[id] = IERC20(USDC_POLYGON);
         messengers[id] = ITokenMessenger(MESSENGER_POLYGON);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_POLYGON);
+        _deploy(id);
+        forks.push(id);
+
+        id = vm.createSelectFork(vm.envString("RPC_TESTNET"));
+        usdcs[id] = IERC20(USDC_SEPOLIA);
+        messengers[id] = ITokenMessenger(MESSENGER_SEPOLIA);
+        transmitters[id] = IMessageTransmitter(TRANSMITTER_SEPOLIA);
+        _deploy(id);
+        forks.push(id);
+
+        id = vm.createSelectFork(vm.envString("RPC_AVALANCHE_TESTNET"));
+        usdcs[id] = IERC20(USDC_AVALANCHE_FUJI);
+        messengers[id] = ITokenMessenger(MESSENGER_AVALANCHE_FUJI);
+        transmitters[id] = IMessageTransmitter(TRANSMITTER_AVALANCHE_FUJI);
+        _deploy(id);
+        forks.push(id);
+
+        id = vm.createSelectFork(vm.envString("RPC_OP_TESTNET"));
+        usdcs[id] = IERC20(USDC_OP_SEPOLIA);
+        messengers[id] = ITokenMessenger(MESSENGER_OP_SEPOLIA);
+        transmitters[id] = IMessageTransmitter(TRANSMITTER_OP_SEPOLIA);
+        _deploy(id);
+        forks.push(id);
+
+        id = vm.createSelectFork(vm.envString("RPC_ARBITRUM_TESTNET"));
+        usdcs[id] = IERC20(USDC_ARBITRUM_SEPOLIA);
+        messengers[id] = ITokenMessenger(MESSENGER_ARBITRUM_SEPOLIA);
+        transmitters[id] = IMessageTransmitter(TRANSMITTER_ARBITRUM_SEPOLIA);
+        _deploy(id);
+        forks.push(id);
+
+        id = vm.createSelectFork(vm.envString("RPC_BASE_TESTNET"));
+        usdcs[id] = IERC20(USDC_BASE_SEPOLIA);
+        messengers[id] = ITokenMessenger(MESSENGER_BASE_SEPOLIA);
+        transmitters[id] = IMessageTransmitter(TRANSMITTER_BASE_SEPOLIA);
+        _deploy(id);
+        forks.push(id);
+
+        id = vm.createSelectFork(vm.envString("RPC_POLYGON_TESTNET"));
+        usdcs[id] = IERC20(USDC_POLYGON_MUMBAI);
+        messengers[id] = ITokenMessenger(MESSENGER_POLYGON_MUMBAI);
+        transmitters[id] = IMessageTransmitter(TRANSMITTER_POLYGON_MUMBAI);
         _deploy(id);
         forks.push(id);
     }
@@ -86,11 +128,17 @@ contract CCTPRelayerTest is Test {
     function test_requestCCTPTransfer() public {
         uint256 length = forks.length;
 
-        uint32[6] memory domains = [uint32(0), 1, 2, 3, 6, 7];
+        uint32[6] memory domains = [uint32(7), 6, 3, 2, 1, 0];
 
         for (uint256 i; i < length; ++i) {
+            uint32 domain;
+            if (i < 6) {
+                domain = domains[i];
+            } else {
+                domain = domains[i - 6];
+            }
             _switchFork(forks[i]);
-            _requestCCTPTransfer(domains[5 - i]);
+            _requestCCTPTransfer(domain);
         }
     }
 
