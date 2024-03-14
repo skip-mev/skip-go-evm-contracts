@@ -35,7 +35,7 @@ jobs:
         env:
           RPC_ENDPOINTS: ${{ secrets.RPC_ENDPOINTS }}
         run: |
-          forge test --root ./AxelarHandler
-          forge test --root ./CCTPRelayer
+          forge test --root ./AxelarHandler -vvv
+          forge test --root ac./CCTPRelayer -vvv
         id: test
 
