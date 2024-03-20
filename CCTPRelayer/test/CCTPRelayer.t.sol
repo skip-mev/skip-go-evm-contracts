@@ -145,6 +145,23 @@ contract CCTPRelayerTest is Test {
         }
     }
 
+    function test_requestCCTPTransferWithCaller() public {
+        uint256 length = forks.length;
+
+        uint32[6] memory domains = [uint32(7), 6, 3, 2, 1, 0];
+
+        for (uint256 i; i < length; ++i) {
+            uint32 domain;
+            if (i < 6) {
+                domain = domains[i];
+            } else {
+                domain = domains[i - 6];
+            }
+            _switchFork(forks[i]);
+            _requestCCTPTransferWithCaller(domain);
+        }
+    }
+
     function test_withdraw() public {
         uint256 length = forks.length;
 
@@ -173,6 +190,28 @@ contract CCTPRelayerTest is Test {
         vm.startPrank(ACTOR_1);
         usdc.approve(address(relayer), amount);
         relayer.requestCCTPTransfer(transferAmount, domain, mintRecipent, address(usdc), feeAmount);
+        vm.stopPrank();
+
+        assertEq(usdc.allowance(address(relayer), address(messenger)), 0, "Messenger Allowance Remaining After Payment");
+        assertEq(usdc.allowance(ACTOR_1, address(relayer)), 0, "Relayer Allowance Remaining After Payment");
+        assertEq(usdc.balanceOf(ACTOR_1), 0, "Balance Remaining After Payment");
+    }
+
+    function _requestCCTPTransferWithCaller(uint32 domain) internal {
+        uint256 transferAmount = 1_000 * 1e6;
+        uint256 feeAmount = 10 * 1e6;
+        uint256 amount = transferAmount + feeAmount;
+
+        _dealUSDC(ACTOR_1, amount);
+        assertEq(usdc.balanceOf(ACTOR_1), amount, "Balance Before Payment is Wrong");
+
+        bytes32 mintRecipent = bytes32(abi.encodePacked(ACTOR_1));
+
+        vm.startPrank(ACTOR_1);
+        usdc.approve(address(relayer), amount);
+        relayer.requestCCTPTransferWithCaller(
+            transferAmount, domain, mintRecipent, address(usdc), feeAmount, keccak256(abi.encodePacked("random caller"))
+        );
         vm.stopPrank();
 
         assertEq(usdc.allowance(address(relayer), address(messenger)), 0, "Messenger Allowance Remaining After Payment");

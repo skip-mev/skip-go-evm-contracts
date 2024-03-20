@@ -64,6 +64,31 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         emit PaymentForRelay(nonce, feeAmount);
     }
 
+    function requestCCTPTransferWithCaller(
+        uint256 transferAmount,
+        uint32 destinationDomain,
+        bytes32 mintRecipient,
+        address burnToken,
+        uint256 feeAmount,
+        bytes32 destinationCaller
+    ) external {
+        if (transferAmount == 0) revert PaymentCannotBeZero();
+        if (feeAmount == 0) revert PaymentCannotBeZero();
+        // In order to save gas do the transfer only once, of both transfer amount and fee amount.
+        if (!usdc.transferFrom(msg.sender, address(this), transferAmount + feeAmount)) revert TransferFailed();
+
+        // Only give allowance of the transfer amount, as we want the fee amount to stay in the contract.
+        usdc.approve(address(messenger), transferAmount);
+
+        // Call deposit for burn and save the nonce.
+        uint64 nonce = messenger.depositForBurnWithCaller(
+            transferAmount, destinationDomain, mintRecipient, burnToken, destinationCaller
+        );
+
+        // As user already paid for the fee we emit the payment event.
+        emit PaymentForRelay(nonce, feeAmount);
+    }
+
     function batchReceiveMessage(ICCTPRelayer.ReceiveCall[] memory receiveCalls) external {
         // Save gas by not retrieving the length on each loop.
         uint256 length = receiveCalls.length;
