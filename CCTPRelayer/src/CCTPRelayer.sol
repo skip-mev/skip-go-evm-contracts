@@ -14,6 +14,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
     IERC20 public usdc;
     ITokenMessenger public messenger;
     IMessageTransmitter public transmitter;
+    address public swapRouter;
 
     constructor() {
         _disableInitializers();
@@ -31,6 +32,12 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         transmitter = IMessageTransmitter(transmitter_);
 
         _transferOwnership(msg.sender);
+    }
+
+    function setSwapRouter(address _swapRouter) external onlyOwner {
+        if (_swapRouter == address(0)) revert ZeroAddress();
+
+        swapRouter = _swapRouter;
     }
 
     function makePaymentForRelay(uint64 nonce, uint256 paymentAmount) external {
@@ -76,6 +83,175 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         if (feeAmount == 0) revert PaymentCannotBeZero();
         // In order to save gas do the transfer only once, of both transfer amount and fee amount.
         if (!usdc.transferFrom(msg.sender, address(this), transferAmount + feeAmount)) revert TransferFailed();
+
+        // Only give allowance of the transfer amount, as we want the fee amount to stay in the contract.
+        usdc.approve(address(messenger), transferAmount);
+
+        // Call deposit for burn and save the nonce.
+        uint64 nonce = messenger.depositForBurnWithCaller(
+            transferAmount, destinationDomain, mintRecipient, burnToken, destinationCaller
+        );
+
+        // As user already paid for the fee we emit the payment event.
+        emit PaymentForRelay(nonce, feeAmount);
+    }
+
+    function swapAndRequestCCTPTransfer(
+        address inputToken,
+        uint256 inputAmount,
+        bytes memory swapCalldata,
+        uint32 destinationDomain,
+        bytes32 mintRecipient,
+        address burnToken,
+        uint256 feeAmount
+    ) external payable {
+        if (inputAmount == 0) revert PaymentCannotBeZero();
+        if (feeAmount == 0) revert PaymentCannotBeZero();
+
+        uint256 outputAmount;
+        if (inputToken == address(0)) {
+            // Native Token
+            if (inputAmount != msg.value) revert InsufficientNativeToken();
+
+            // Get the contract's balances previous to the swap
+            uint256 preInputBalance = address(this).balance;
+            uint256 preOutputBalance = usdc.balanceOf(address(this));
+
+            // Call the swap router and perform the swap
+            (bool success,) = swapRouter.call{value: inputAmount}(swapCalldata);
+            if (!success) revert SwapFailed();
+
+            // Get the contract's balances after the swap
+            uint256 postInputBalance = address(this).balance;
+            uint256 postOutputBalance = usdc.balanceOf(address(this));
+
+            // Check that the contract's native token balance has increased
+            outputAmount = postOutputBalance - preOutputBalance;
+
+            // Refund the remaining ETH
+            uint256 dust = postInputBalance + inputAmount - preInputBalance;
+            if (dust != 0) {
+                (bool ethSuccess,) = msg.sender.call{value: dust}("");
+                if (!ethSuccess) revert ETHSendFailed();
+            }
+        } else {
+            // Transfer input ERC20 tokens to the contract
+            IERC20 token = IERC20(inputToken);
+            token.transferFrom(msg.sender, address(this), inputAmount);
+
+            // Approve the swap router to spend the input tokens
+            token.approve(swapRouter, inputAmount);
+
+            // Get the contract's balances previous to the swap
+            uint256 preInputBalance = token.balanceOf(address(this));
+            uint256 preOutputBalance = usdc.balanceOf(address(this));
+
+            // Call the swap router and perform the swap
+            (bool success,) = swapRouter.call(swapCalldata);
+            if (!success) revert SwapFailed();
+
+            // Get the contract's balances after the swap
+            uint256 postInputBalance = token.balanceOf(address(this));
+            uint256 postOutputBalance = usdc.balanceOf(address(this));
+
+            // Check that the contract's output token balance has increased
+            if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
+            outputAmount = postOutputBalance - preOutputBalance;
+
+            // Refund the remaining amount
+            uint256 dust = postInputBalance + inputAmount - preInputBalance;
+            if (dust != 0) {
+                token.transfer(msg.sender, dust);
+            }
+        }
+
+        // Check that output amount is enough to cover the fee
+        if (outputAmount <= feeAmount) revert InsufficientSwapOutput();
+        uint256 transferAmount = outputAmount - feeAmount;
+
+        // Only give allowance of the transfer amount, as we want the fee amount to stay in the contract.
+        usdc.approve(address(messenger), transferAmount);
+
+        // Call deposit for burn and save the nonce.
+        uint64 nonce = messenger.depositForBurn(transferAmount, destinationDomain, mintRecipient, burnToken);
+
+        // As user already paid for the fee we emit the payment event.
+        emit PaymentForRelay(nonce, feeAmount);
+    }
+
+    function swapAndRequestCCTPTransferWithCaller(
+        address inputToken,
+        uint256 inputAmount,
+        bytes memory swapCalldata,
+        uint32 destinationDomain,
+        bytes32 mintRecipient,
+        address burnToken,
+        uint256 feeAmount,
+        bytes32 destinationCaller
+    ) external payable {
+        if (inputAmount == 0) revert PaymentCannotBeZero();
+        if (feeAmount == 0) revert PaymentCannotBeZero();
+
+        uint256 outputAmount;
+        if (inputToken == address(0)) {
+            // Native Token
+            if (inputAmount != msg.value) revert InsufficientNativeToken();
+
+            // Get the contract's balances previous to the swap
+            uint256 preInputBalance = address(this).balance;
+            uint256 preOutputBalance = usdc.balanceOf(address(this));
+
+            // Call the swap router and perform the swap
+            (bool success,) = swapRouter.call{value: inputAmount}(swapCalldata);
+            if (!success) revert SwapFailed();
+
+            // Get the contract's balances after the swap
+            uint256 postInputBalance = address(this).balance;
+            uint256 postOutputBalance = usdc.balanceOf(address(this));
+
+            // Check that the contract's native token balance has increased
+            outputAmount = postOutputBalance - preOutputBalance;
+
+            // Refund the remaining ETH
+            uint256 dust = postInputBalance + inputAmount - preInputBalance;
+            if (dust != 0) {
+                (bool ethSuccess,) = msg.sender.call{value: dust}("");
+                if (!ethSuccess) revert ETHSendFailed();
+            }
+        } else {
+            // Transfer input ERC20 tokens to the contract
+            IERC20 token = IERC20(inputToken);
+            token.transferFrom(msg.sender, address(this), inputAmount);
+
+            // Approve the swap router to spend the input tokens
+            token.approve(swapRouter, inputAmount);
+
+            // Get the contract's balances previous to the swap
+            uint256 preInputBalance = token.balanceOf(address(this));
+            uint256 preOutputBalance = usdc.balanceOf(address(this));
+
+            // Call the swap router and perform the swap
+            (bool success,) = swapRouter.call(swapCalldata);
+            if (!success) revert SwapFailed();
+
+            // Get the contract's balances after the swap
+            uint256 postInputBalance = token.balanceOf(address(this));
+            uint256 postOutputBalance = usdc.balanceOf(address(this));
+
+            // Check that the contract's output token balance has increased
+            if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
+            outputAmount = postOutputBalance - preOutputBalance;
+
+            // Refund the remaining amount
+            uint256 dust = postInputBalance + inputAmount - preInputBalance;
+            if (dust != 0) {
+                token.transfer(msg.sender, dust);
+            }
+        }
+
+        // Check that output amount is enough to cover the fee
+        if (outputAmount <= feeAmount) revert InsufficientSwapOutput();
+        uint256 transferAmount = outputAmount - feeAmount;
 
         // Only give allowance of the transfer amount, as we want the fee amount to stay in the contract.
         usdc.approve(address(messenger), transferAmount);
