@@ -14,6 +14,22 @@ contract CCTPRelayerTest is Test {
     using stdStorage for StdStorage;
     using stdJson for string;
 
+    struct ExactInputParams {
+        bytes path;
+        address recipient;
+        uint256 deadline;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+    }
+
+    struct ExactOutputParams {
+        bytes path;
+        address recipient;
+        uint256 deadline;
+        uint256 amountOut;
+        uint256 amountInMaximum;
+    }
+
     address public ACTOR_1 = makeAddr("ACTOR 1");
 
     uint256[] public forks;
@@ -21,101 +37,117 @@ contract CCTPRelayerTest is Test {
     // Contracts from the selected fork
     CCTPRelayer public relayer;
     IERC20 public usdc;
+    IERC20 public wETH;
     ITokenMessenger messenger;
     IMessageTransmitter transmitter;
+    address public router;
 
     // Fork ID -> Contract
     mapping(uint256 => CCTPRelayer) public relayers;
     mapping(uint256 => IERC20) public usdcs;
     mapping(uint256 => ITokenMessenger) public messengers;
     mapping(uint256 => IMessageTransmitter) public transmitters;
+    mapping(uint256 => address) public routers;
+    mapping(uint256 => IERC20) public wETHs;
 
     function setUp() public {
         string memory rpcsJson = vm.envString("RPC_ENDPOINTS");
 
         uint256 id = vm.createSelectFork(rpcsJson.readString(".ethereum-mainnet"));
         usdcs[id] = IERC20(USDC_MAINNET);
+        wETHs[id] = IERC20(WETH_MAINNET);
         messengers[id] = ITokenMessenger(MESSENGER_MAINNET);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_MAINNET);
+        routers[id] = ROUTER_MAINNET;
         _deploy(id);
         forks.push(id);
 
         id = vm.createSelectFork(rpcsJson.readString(".avalanche-mainnet"));
         usdcs[id] = IERC20(USDC_AVALANCHE);
+        wETHs[id] = IERC20(WETH_AVALANCHE);
         messengers[id] = ITokenMessenger(MESSENGER_AVALANCHE);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_AVALANCHE);
+        routers[id] = ROUTER_AVALANCHE;
         _deploy(id);
         forks.push(id);
 
         id = vm.createSelectFork(rpcsJson.readString(".op-mainnet"));
         usdcs[id] = IERC20(USDC_OP);
+        wETHs[id] = IERC20(WETH_OP);
         messengers[id] = ITokenMessenger(MESSENGER_OP);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_OP);
+        routers[id] = ROUTER_OP;
         _deploy(id);
         forks.push(id);
 
         id = vm.createSelectFork(rpcsJson.readString(".arbitrum-mainnet"));
         usdcs[id] = IERC20(USDC_ARBITRUM);
+        wETHs[id] = IERC20(WETH_ARBITRUM);
         messengers[id] = ITokenMessenger(MESSENGER_ARBITRUM);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_ARBITRUM);
+        routers[id] = ROUTER_ARBITRUM;
         _deploy(id);
         forks.push(id);
 
         id = vm.createSelectFork(rpcsJson.readString(".base-mainnet"));
         usdcs[id] = IERC20(USDC_BASE);
+        wETHs[id] = IERC20(WETH_BASE);
         messengers[id] = ITokenMessenger(MESSENGER_BASE);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_BASE);
+        routers[id] = ROUTER_BASE;
         _deploy(id);
         forks.push(id);
 
         id = vm.createSelectFork(rpcsJson.readString(".polygon-mainnet"));
         usdcs[id] = IERC20(USDC_POLYGON);
+        wETHs[id] = IERC20(WETH_POLYGON);
         messengers[id] = ITokenMessenger(MESSENGER_POLYGON);
         transmitters[id] = IMessageTransmitter(TRANSMITTER_POLYGON);
+        routers[id] = ROUTER_POLYGON;
         _deploy(id);
         forks.push(id);
 
-        id = vm.createSelectFork(rpcsJson.readString(".ethereum-testnet"));
-        usdcs[id] = IERC20(USDC_SEPOLIA);
-        messengers[id] = ITokenMessenger(MESSENGER_SEPOLIA);
-        transmitters[id] = IMessageTransmitter(TRANSMITTER_SEPOLIA);
-        _deploy(id);
-        forks.push(id);
+        // id = vm.createSelectFork(rpcsJson.readString(".ethereum-testnet"));
+        // usdcs[id] = IERC20(USDC_SEPOLIA);
+        // messengers[id] = ITokenMessenger(MESSENGER_SEPOLIA);
+        // transmitters[id] = IMessageTransmitter(TRANSMITTER_SEPOLIA);
+        // _deploy(id);
+        // forks.push(id);
 
-        id = vm.createSelectFork(rpcsJson.readString(".avalanche-testnet"));
-        usdcs[id] = IERC20(USDC_AVALANCHE_FUJI);
-        messengers[id] = ITokenMessenger(MESSENGER_AVALANCHE_FUJI);
-        transmitters[id] = IMessageTransmitter(TRANSMITTER_AVALANCHE_FUJI);
-        _deploy(id);
-        forks.push(id);
+        // id = vm.createSelectFork(rpcsJson.readString(".avalanche-testnet"));
+        // usdcs[id] = IERC20(USDC_AVALANCHE_FUJI);
+        // messengers[id] = ITokenMessenger(MESSENGER_AVALANCHE_FUJI);
+        // transmitters[id] = IMessageTransmitter(TRANSMITTER_AVALANCHE_FUJI);
+        // _deploy(id);
+        // forks.push(id);
 
-        id = vm.createSelectFork(rpcsJson.readString(".op-testnet"));
-        usdcs[id] = IERC20(USDC_OP_SEPOLIA);
-        messengers[id] = ITokenMessenger(MESSENGER_OP_SEPOLIA);
-        transmitters[id] = IMessageTransmitter(TRANSMITTER_OP_SEPOLIA);
-        _deploy(id);
-        forks.push(id);
+        // id = vm.createSelectFork(rpcsJson.readString(".op-testnet"));
+        // usdcs[id] = IERC20(USDC_OP_SEPOLIA);
+        // messengers[id] = ITokenMessenger(MESSENGER_OP_SEPOLIA);
+        // transmitters[id] = IMessageTransmitter(TRANSMITTER_OP_SEPOLIA);
+        // _deploy(id);
+        // forks.push(id);
 
-        id = vm.createSelectFork(rpcsJson.readString(".arbitrum-testnet"));
-        usdcs[id] = IERC20(USDC_ARBITRUM_SEPOLIA);
-        messengers[id] = ITokenMessenger(MESSENGER_ARBITRUM_SEPOLIA);
-        transmitters[id] = IMessageTransmitter(TRANSMITTER_ARBITRUM_SEPOLIA);
-        _deploy(id);
-        forks.push(id);
+        // id = vm.createSelectFork(rpcsJson.readString(".arbitrum-testnet"));
+        // usdcs[id] = IERC20(USDC_ARBITRUM_SEPOLIA);
+        // messengers[id] = ITokenMessenger(MESSENGER_ARBITRUM_SEPOLIA);
+        // transmitters[id] = IMessageTransmitter(TRANSMITTER_ARBITRUM_SEPOLIA);
+        // _deploy(id);
+        // forks.push(id);
 
-        id = vm.createSelectFork(rpcsJson.readString(".base-testnet"));
-        usdcs[id] = IERC20(USDC_BASE_SEPOLIA);
-        messengers[id] = ITokenMessenger(MESSENGER_BASE_SEPOLIA);
-        transmitters[id] = IMessageTransmitter(TRANSMITTER_BASE_SEPOLIA);
-        _deploy(id);
-        forks.push(id);
+        // id = vm.createSelectFork(rpcsJson.readString(".base-testnet"));
+        // usdcs[id] = IERC20(USDC_BASE_SEPOLIA);
+        // messengers[id] = ITokenMessenger(MESSENGER_BASE_SEPOLIA);
+        // transmitters[id] = IMessageTransmitter(TRANSMITTER_BASE_SEPOLIA);
+        // _deploy(id);
+        // forks.push(id);
 
-        id = vm.createSelectFork(rpcsJson.readString(".polygon-testnet"));
-        usdcs[id] = IERC20(USDC_POLYGON_MUMBAI);
-        messengers[id] = ITokenMessenger(MESSENGER_POLYGON_MUMBAI);
-        transmitters[id] = IMessageTransmitter(TRANSMITTER_POLYGON_MUMBAI);
-        _deploy(id);
-        forks.push(id);
+        // id = vm.createSelectFork(rpcsJson.readString(".polygon-testnet"));
+        // usdcs[id] = IERC20(USDC_POLYGON_MUMBAI);
+        // messengers[id] = ITokenMessenger(MESSENGER_POLYGON_MUMBAI);
+        // transmitters[id] = IMessageTransmitter(TRANSMITTER_POLYGON_MUMBAI);
+        // _deploy(id);
+        // forks.push(id);
     }
 
     function test_Fuzz_makePaymentForRelay(uint64 nonce, uint256 amount) public {
@@ -160,6 +192,209 @@ contract CCTPRelayerTest is Test {
             _switchFork(forks[i]);
             _requestCCTPTransferWithCaller(domain);
         }
+    }
+
+    function test_swapAndRequestCCTPTransfer_ETH() public {
+        uint256 length = forks.length;
+
+        uint32[6] memory domains = [uint32(7), 6, 3, 2, 1, 0];
+
+        for (uint256 i; i < 1; ++i) {
+            if (router == address(0)) {
+                continue;
+            }
+            uint32 domain;
+            if (i < 6) {
+                domain = domains[i];
+            } else {
+                domain = domains[i - 6];
+            }
+            _switchFork(forks[i]);
+
+            uint256 minAmount = 2_000 * 1e6;
+            address[] memory path = new address[](2);
+            path[0] = address(wETH);
+            path[1] = address(usdc);
+            bytes memory swapCalldata = abi.encodeWithSignature(
+                "swapExactETHForTokens(uint256,address[],address,uint256)",
+                minAmount,
+                path,
+                address(relayer),
+                block.timestamp + 5 days
+            );
+
+            _swapAndRequestCCTPTransfer(domain, address(0), 1 ether, swapCalldata);
+        }
+    }
+
+    function test_swapAndRequestCCTPTransfer_Token() public {
+        uint256 length = forks.length;
+
+        uint32[6] memory domains = [uint32(7), 6, 3, 2, 1, 0];
+
+        for (uint256 i; i < 1; ++i) {
+            uint32 domain;
+            if (i < 6) {
+                domain = domains[i];
+            } else {
+                domain = domains[i - 6];
+            }
+            _switchFork(forks[i]);
+
+            uint256 minAmount = 200 * 1e6;
+            address[] memory path = new address[](2);
+            path[0] = address(wETH);
+            path[1] = address(usdc);
+            bytes memory swapCalldata = abi.encodeWithSignature(
+                "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+                1 ether,
+                minAmount,
+                path,
+                address(relayer),
+                block.timestamp + 5 days
+            );
+
+            _swapAndRequestCCTPTransfer(domain, address(wETH), 1 ether, swapCalldata);
+        }
+    }
+
+    function test_swapAndRequestCCTPTransferWithCaller_ETH() public {
+        uint256 length = forks.length;
+
+        uint32[6] memory domains = [uint32(7), 6, 3, 2, 1, 0];
+
+        for (uint256 i; i < 1; ++i) {
+            uint32 domain;
+            if (i < 6) {
+                domain = domains[i];
+            } else {
+                domain = domains[i - 6];
+            }
+            _switchFork(forks[i]);
+
+            uint256 minAmount = 2_000 * 1e6;
+            address[] memory path = new address[](2);
+            path[0] = address(wETH);
+            path[1] = address(usdc);
+            bytes memory swapCalldata = abi.encodeWithSignature(
+                "swapExactETHForTokens(uint256,address[],address,uint256)",
+                minAmount,
+                path,
+                address(relayer),
+                block.timestamp + 5 days
+            );
+
+            _swapAndRequestCCTPTransferWithCaller(domain, address(0), 1 ether, swapCalldata);
+        }
+    }
+
+    function test_swapAndRequestCCTPTransferWithCaller_Token() public {
+        uint256 length = forks.length;
+
+        uint32[6] memory domains = [uint32(7), 6, 3, 2, 1, 0];
+
+        for (uint256 i; i < 1; ++i) {
+            uint32 domain;
+            if (i < 6) {
+                domain = domains[i];
+            } else {
+                domain = domains[i - 6];
+            }
+            _switchFork(forks[i]);
+
+            uint256 minAmount = 2_000 * 1e6;
+            address[] memory path = new address[](2);
+            path[0] = address(wETH);
+            path[1] = address(usdc);
+            bytes memory swapCalldata = abi.encodeWithSignature(
+                "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+                1 ether,
+                minAmount,
+                path,
+                address(relayer),
+                block.timestamp + 5 days
+            );
+
+            _swapAndRequestCCTPTransferWithCaller(domain, address(wETH), 1 ether, swapCalldata);
+        }
+    }
+
+    function _swapAndRequestCCTPTransfer(
+        uint32 domain,
+        address inputToken,
+        uint256 inputAmount,
+        bytes memory swapCalldata
+    ) internal {
+        uint256 feeAmount = 10 * 1e6;
+
+        bytes32 mintRecipent = bytes32(abi.encodePacked(ACTOR_1));
+
+        if (inputToken == address(0)) {
+            vm.deal(ACTOR_1, inputAmount);
+            vm.startPrank(ACTOR_1);
+            relayer.swapAndRequestCCTPTransfer{value: inputAmount}(
+                inputToken, inputAmount, swapCalldata, domain, mintRecipent, address(usdc), feeAmount
+            );
+            vm.stopPrank();
+        } else {
+            deal(inputToken, ACTOR_1, inputAmount);
+            vm.startPrank(ACTOR_1);
+            IERC20(inputToken).approve(address(relayer), inputAmount);
+            relayer.swapAndRequestCCTPTransfer(
+                inputToken, inputAmount, swapCalldata, domain, mintRecipent, address(usdc), feeAmount
+            );
+            vm.stopPrank();
+        }
+
+        assertEq(usdc.allowance(address(relayer), address(messenger)), 0, "Messenger Allowance Remaining After Payment");
+        assertEq(usdc.allowance(ACTOR_1, address(relayer)), 0, "Relayer Allowance Remaining After Payment");
+        assertEq(usdc.balanceOf(ACTOR_1), 0, "Balance Remaining After Payment");
+    }
+
+    function _swapAndRequestCCTPTransferWithCaller(
+        uint32 domain,
+        address inputToken,
+        uint256 inputAmount,
+        bytes memory swapCalldata
+    ) internal {
+        uint256 feeAmount = 10 * 1e6;
+
+        bytes32 mintRecipent = bytes32(abi.encodePacked(ACTOR_1));
+
+        if (inputToken == address(0)) {
+            vm.deal(ACTOR_1, inputAmount);
+            vm.startPrank(ACTOR_1);
+            relayer.swapAndRequestCCTPTransferWithCaller{value: inputAmount}(
+                inputToken,
+                inputAmount,
+                swapCalldata,
+                domain,
+                mintRecipent,
+                address(usdc),
+                feeAmount,
+                keccak256(abi.encodePacked("random caller"))
+            );
+            vm.stopPrank();
+        } else {
+            deal(inputToken, ACTOR_1, inputAmount);
+            vm.startPrank(ACTOR_1);
+            IERC20(inputToken).approve(address(relayer), inputAmount);
+            relayer.swapAndRequestCCTPTransferWithCaller(
+                inputToken,
+                inputAmount,
+                swapCalldata,
+                domain,
+                mintRecipent,
+                address(usdc),
+                feeAmount,
+                keccak256(abi.encodePacked("random caller"))
+            );
+            vm.stopPrank();
+        }
+
+        assertEq(usdc.allowance(address(relayer), address(messenger)), 0, "Messenger Allowance Remaining After Payment");
+        assertEq(usdc.allowance(ACTOR_1, address(relayer)), 0, "Relayer Allowance Remaining After Payment");
+        assertEq(usdc.balanceOf(ACTOR_1), 0, "Balance Remaining After Payment");
     }
 
     function test_withdraw() public {
@@ -224,8 +459,10 @@ contract CCTPRelayerTest is Test {
 
         relayer = relayers[id];
         usdc = usdcs[id];
+        wETH = wETHs[id];
         messenger = messengers[id];
         transmitter = transmitters[id];
+        router = routers[id];
     }
 
     function _deploy(uint256 id) internal {
@@ -240,8 +477,10 @@ contract CCTPRelayerTest is Test {
             )
         );
 
-        relayers[id] = CCTPRelayer(address(relayerProxy));
-        relayer = CCTPRelayer(address(relayerProxy));
+        relayers[id] = CCTPRelayer(payable(address(relayerProxy)));
+        relayer = CCTPRelayer(payable(address(relayerProxy)));
+
+        relayer.setSwapRouter(routers[id]);
     }
 
     function _dealUSDC(address account, uint256 amount) internal {

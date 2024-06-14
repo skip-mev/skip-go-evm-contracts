@@ -162,6 +162,9 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             uint256 dust = postInputBalance + inputAmount - preInputBalance;
             if (dust != 0) {
                 token.transfer(msg.sender, dust);
+
+                // Revoke Approval
+                token.approve(swapRouter, 0);
             }
         }
 
@@ -246,6 +249,9 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             uint256 dust = postInputBalance + inputAmount - preInputBalance;
             if (dust != 0) {
                 token.transfer(msg.sender, dust);
+
+                // Revoke Approval
+                token.approve(swapRouter, 0);
             }
         }
 
@@ -292,6 +298,10 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         // Check that the transfer succeeds.
         if (!usdc.transfer(receiver, amount)) revert TransferFailed();
     }
+
+    fallback() external payable {}
+
+    receive() external payable {}
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }

@@ -265,6 +265,9 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             // Refund the remaining amount
             if (dust != 0) {
                 token.transfer(msg.sender, dust);
+
+                // Revoke approval
+                token.safeApprove(swapRouter, 0);
             }
         }
 
