@@ -15,6 +15,14 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
     ITokenMessenger public messenger;
     IMessageTransmitter public transmitter;
     address public swapRouter;
+    bool internal reentrant;
+
+    modifier nonReentrant() {
+        if (reentrant) revert Reentrancy();
+        reentrant = true;
+        _;
+        reentrant = false;
+    }
 
     constructor() {
         _disableInitializers();
@@ -104,17 +112,19 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         bytes32 mintRecipient,
         address burnToken,
         uint256 feeAmount
-    ) external payable {
+    ) external payable nonReentrant {
         if (inputAmount == 0) revert PaymentCannotBeZero();
         if (feeAmount == 0) revert PaymentCannotBeZero();
 
         uint256 outputAmount;
         if (inputToken == address(0)) {
+            IERC20 token = IERC20(inputToken);
+
             // Native Token
             if (inputAmount != msg.value) revert InsufficientNativeToken();
 
             // Get the contract's balances previous to the swap
-            uint256 preInputBalance = address(this).balance;
+            uint256 preInputBalance = address(this).balance - inputAmount;
             uint256 preOutputBalance = usdc.balanceOf(address(this));
 
             // Call the swap router and perform the swap
@@ -126,25 +136,27 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             uint256 postOutputBalance = usdc.balanceOf(address(this));
 
             // Check that the contract's native token balance has increased
+            if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
             outputAmount = postOutputBalance - preOutputBalance;
 
             // Refund the remaining ETH
-            uint256 dust = postInputBalance + inputAmount - preInputBalance;
+            uint256 dust = postInputBalance - preInputBalance;
             if (dust != 0) {
                 (bool ethSuccess,) = msg.sender.call{value: dust}("");
                 if (!ethSuccess) revert ETHSendFailed();
             }
         } else {
-            // Transfer input ERC20 tokens to the contract
             IERC20 token = IERC20(inputToken);
-            token.transferFrom(msg.sender, address(this), inputAmount);
-
-            // Approve the swap router to spend the input tokens
-            token.approve(swapRouter, inputAmount);
 
             // Get the contract's balances previous to the swap
             uint256 preInputBalance = token.balanceOf(address(this));
             uint256 preOutputBalance = usdc.balanceOf(address(this));
+
+            // Transfer input ERC20 tokens to the contract
+            token.transferFrom(msg.sender, address(this), inputAmount);
+
+            // Approve the swap router to spend the input tokens
+            token.approve(swapRouter, inputAmount);
 
             // Call the swap router and perform the swap
             (bool success,) = swapRouter.call(swapCalldata);
@@ -159,7 +171,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             outputAmount = postOutputBalance - preOutputBalance;
 
             // Refund the remaining amount
-            uint256 dust = postInputBalance + inputAmount - preInputBalance;
+            uint256 dust = postInputBalance - preInputBalance;
             if (dust != 0) {
                 token.transfer(msg.sender, dust);
 
@@ -191,7 +203,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         address burnToken,
         uint256 feeAmount,
         bytes32 destinationCaller
-    ) external payable {
+    ) external payable nonReentrant {
         if (inputAmount == 0) revert PaymentCannotBeZero();
         if (feeAmount == 0) revert PaymentCannotBeZero();
 
@@ -200,8 +212,10 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             // Native Token
             if (inputAmount != msg.value) revert InsufficientNativeToken();
 
+            IERC20 token = IERC20(inputToken);
+
             // Get the contract's balances previous to the swap
-            uint256 preInputBalance = address(this).balance;
+            uint256 preInputBalance = address(this).balance - inputAmount;
             uint256 preOutputBalance = usdc.balanceOf(address(this));
 
             // Call the swap router and perform the swap
@@ -213,25 +227,27 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             uint256 postOutputBalance = usdc.balanceOf(address(this));
 
             // Check that the contract's native token balance has increased
+            if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
             outputAmount = postOutputBalance - preOutputBalance;
 
             // Refund the remaining ETH
-            uint256 dust = postInputBalance + inputAmount - preInputBalance;
+            uint256 dust = postInputBalance - preInputBalance;
             if (dust != 0) {
                 (bool ethSuccess,) = msg.sender.call{value: dust}("");
                 if (!ethSuccess) revert ETHSendFailed();
             }
         } else {
-            // Transfer input ERC20 tokens to the contract
             IERC20 token = IERC20(inputToken);
-            token.transferFrom(msg.sender, address(this), inputAmount);
-
-            // Approve the swap router to spend the input tokens
-            token.approve(swapRouter, inputAmount);
 
             // Get the contract's balances previous to the swap
             uint256 preInputBalance = token.balanceOf(address(this));
             uint256 preOutputBalance = usdc.balanceOf(address(this));
+
+            // Transfer input ERC20 tokens to the contract
+            token.transferFrom(msg.sender, address(this), inputAmount);
+
+            // Approve the swap router to spend the input tokens
+            token.approve(swapRouter, inputAmount);
 
             // Call the swap router and perform the swap
             (bool success,) = swapRouter.call(swapCalldata);
@@ -246,7 +262,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             outputAmount = postOutputBalance - preOutputBalance;
 
             // Refund the remaining amount
-            uint256 dust = postInputBalance + inputAmount - preInputBalance;
+            uint256 dust = postInputBalance - preInputBalance;
             if (dust != 0) {
                 token.transfer(msg.sender, dust);
 

@@ -34,6 +34,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     error InsufficientSwapOutput();
     error InsufficientNativeToken();
     error ETHSendFailed();
+    error Reentrancy();
 
     bytes32 private _wETHSymbolHash;
 
@@ -45,6 +46,15 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     bytes32 public constant DISABLED_SYMBOL = keccak256(abi.encodePacked("DISABLED"));
 
     address public swapRouter;
+
+    bool internal reentrant;
+
+    modifier nonReentrant() {
+        if (reentrant) revert Reentrancy();
+        reentrant = true;
+        _;
+        reentrant = false;
+    }
 
     constructor() {
         _disableInitializers();
@@ -201,7 +211,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         bytes memory payload,
         string memory symbol,
         uint256 gasPaymentAmount
-    ) external payable {
+    ) external payable nonReentrant {
         if (amount == 0) revert ZeroAmount();
         if (gasPaymentAmount == 0) revert ZeroGasAmount();
         if (bytes(symbol).length == 0) revert EmptySymbol();
@@ -215,7 +225,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             if (amount + gasPaymentAmount != msg.value) revert InsufficientNativeToken();
 
             // Get the contract's balances previous to the swap
-            uint256 preInputBalance = address(this).balance;
+            uint256 preInputBalance = address(this).balance - msg.value;
             uint256 preOutputBalance = outputToken.balanceOf(address(this));
 
             // Call the swap router and perform the swap
@@ -227,10 +237,11 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             uint256 postOutputBalance = outputToken.balanceOf(address(this));
 
             // Check that the contract's native token balance has increased
+            if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
             outputAmount = postOutputBalance - preOutputBalance;
 
             // Refund the remaining ETH
-            uint256 dust = postInputBalance + amount - preInputBalance;
+            uint256 dust = postInputBalance - preInputBalance - gasPaymentAmount;
             if (dust != 0) {
                 (bool ethSuccess,) = msg.sender.call{value: dust}("");
                 if (!ethSuccess) revert ETHSendFailed();

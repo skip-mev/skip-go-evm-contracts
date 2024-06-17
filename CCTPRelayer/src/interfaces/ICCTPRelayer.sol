@@ -14,6 +14,7 @@ interface ICCTPRelayer {
     error SwapFailed();
     error InsufficientSwapOutput();
     error InsufficientNativeToken();
+    error Reentrancy();
 
     event PaymentForRelay(uint64 nonce, uint256 paymentAmount);
 
