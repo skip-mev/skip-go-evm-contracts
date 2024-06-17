@@ -20,6 +20,7 @@ contract AxelarHandlerTest is Test {
     AxelarHandler public handler;
     IAxelarGateway public gateway;
     Environment public env;
+    address public router;
 
     function setUp() public {
         env = new Environment();
@@ -31,6 +32,7 @@ contract AxelarHandlerTest is Test {
 
         gateway = IAxelarGateway(0x4F4495243837681061C4743b74B3eEdf548D56A5);
         address gasService = 0x2d5d7d31F671F86C782533cc367F14109a082712;
+        router = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
         string memory wethSymbol = "WETH";
 
         AxelarHandler handlerImpl = new AxelarHandler();
@@ -39,6 +41,8 @@ contract AxelarHandlerTest is Test {
             abi.encodeWithSignature("initialize(address,address,string)", address(gateway), gasService, wethSymbol)
         );
         handler = AxelarHandler(payable(address(handlerProxy)));
+
+        handler.setSwapRouter(router);
 
         vm.label(address(handler), "HANDLER");
         vm.label(address(gateway), "GATEWAY");
@@ -345,5 +349,94 @@ contract AxelarHandlerTest is Test {
         assertEq(token.balanceOf(address(handler)), 0, "Handler balance after");
         assertEq(token.balanceOf(ALICE), 100 ether, "Alice token balance after");
         assertEq(ALICE.balance, 0, "Alice native balance after");
+    }
+
+    function test_swapAndGmpTransferERC20Token_ETH(
+        uint32 domain,
+        address inputToken,
+        uint256 inputAmount,
+        bytes memory swapCalldata
+    ) public {
+        uint256 amount = 2 ether;
+        uint256 gasAmount = 0.5 ether;
+        IERC20Upgradeable token = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses("WBTC"));
+
+        assertEq(ALICE.balance, 0, "Pre-swap user balance");
+        assertEq(address(handler).balance, 0, "Pre-swap contract balance");
+
+        vm.deal(ALICE, amount + gasAmount);
+
+        uint256 minAmount = 0.05 * 1e8;
+        address[] memory path = new address[](2);
+        path[0] = gateway.tokenAddresses("WETH");
+        path[1] = address(token);
+        bytes memory swapCalldata =
+            abi.encodeWithSelector(bytes4(0x472b43f3), amount, minAmount, path, address(handler));
+
+        vm.startPrank(ALICE);
+        handler.swapAndGmpTransferERC20Token{value: amount + gasAmount}(
+            address(0),
+            amount,
+            swapCalldata,
+            "arbitrum",
+            vm.toString(address(this)),
+            abi.encodePacked(address(BOB)),
+            "WBTC",
+            gasAmount
+        );
+        vm.stopPrank();
+
+        assertEq(ALICE.balance, 0, "User balance increased");
+        assertEq(address(handler).balance, 0, "Funds leftover in contract");
+        assertEq(token.allowance(address(handler), address(router)), 0, "Router Allowance Remaining After Payment");
+        assertEq(token.balanceOf(address(handler)), 0, "Balance Remaining After Payment");
+        assertEq(address(handler).balance, 0, "Native balance after sending.");
+    }
+
+    function test_swapAndGmpTransferERC20Token_Token(
+        uint32 domain,
+        address inputToken,
+        uint256 inputAmount,
+        bytes memory swapCalldata
+    ) public {
+        uint256 amount = 2 ether;
+        uint256 gasAmount = 0.5 ether;
+        IERC20Upgradeable inputToken = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses("WETH"));
+        IERC20Upgradeable token = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses("WBTC"));
+
+        assertEq(inputToken.balanceOf(ALICE), 0, "Pre-swap user balance");
+        assertEq(inputToken.balanceOf(address(handler)), 0, "Pre-swap contract balance");
+        assertEq(address(handler).balance, 0, "Pre-swap contract eth balance");
+
+        vm.deal(ALICE, gasAmount);
+        deal(address(inputToken), ALICE, amount);
+
+        uint256 minAmount = 0.05 * 1e8;
+        address[] memory path = new address[](2);
+        path[0] = address(inputToken);
+        path[1] = address(token);
+        bytes memory swapCalldata =
+            abi.encodeWithSelector(bytes4(0x472b43f3), amount, minAmount, path, address(handler));
+
+        vm.startPrank(ALICE);
+        IERC20Upgradeable(path[0]).approve(address(handler), amount);
+        handler.swapAndGmpTransferERC20Token{value: gasAmount}(
+            path[0],
+            amount,
+            swapCalldata,
+            "arbitrum",
+            vm.toString(address(this)),
+            abi.encodePacked(address(BOB)),
+            "WBTC",
+            gasAmount
+        );
+        vm.stopPrank();
+
+        assertEq(IERC20Upgradeable(path[0]).balanceOf(ALICE), 0, "Handler balance increased");
+        assertEq(IERC20Upgradeable(path[1]).balanceOf(ALICE), 0, "Handler balance increased");
+        assertEq(address(handler).balance, 0, "Funds leftover in contract");
+        assertEq(token.allowance(address(handler), address(router)), 0, "Router Allowance Remaining After Payment");
+        assertEq(token.balanceOf(address(handler)), 0, "Balance Remaining After Payment");
+        assertEq(address(handler).balance, 0, "Native balance after sending.");
     }
 }

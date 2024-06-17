@@ -8,7 +8,7 @@ import {ITokenMessenger} from "src/interfaces/ITokenMessenger.sol";
 import {IMessageTransmitter} from "src/interfaces/IMessageTransmitter.sol";
 
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract CCTPRelayerTest is Test {
     using stdStorage for StdStorage;
@@ -195,128 +195,73 @@ contract CCTPRelayerTest is Test {
     }
 
     function test_swapAndRequestCCTPTransfer_ETH() public {
-        uint256 length = forks.length;
+        uint32 domain = uint32(7);
+        _switchFork(forks[0]);
 
-        uint32[6] memory domains = [uint32(7), 6, 3, 2, 1, 0];
+        uint256 minAmount = 2_000 * 1e6;
+        address[] memory path = new address[](2);
+        path[0] = address(wETH);
+        path[1] = address(usdc);
+        bytes memory swapCalldata =
+            abi.encodeWithSelector(bytes4(0x472b43f3), 1 ether, minAmount, path, address(relayer));
 
-        for (uint256 i; i < 1; ++i) {
-            if (router == address(0)) {
-                continue;
-            }
-            uint32 domain;
-            if (i < 6) {
-                domain = domains[i];
-            } else {
-                domain = domains[i - 6];
-            }
-            _switchFork(forks[i]);
+        _swapAndRequestCCTPTransfer(domain, address(0), 1 ether, swapCalldata);
+    }
 
-            uint256 minAmount = 2_000 * 1e6;
-            address[] memory path = new address[](2);
-            path[0] = address(wETH);
-            path[1] = address(usdc);
-            bytes memory swapCalldata = abi.encodeWithSignature(
-                "swapExactETHForTokens(uint256,address[],address,uint256)",
-                minAmount,
-                path,
-                address(relayer),
-                block.timestamp + 5 days
-            );
+    function test_swapAndRequestCCTPTransfer_ETH_refund() public {
+        uint32 domain = uint32(7);
+        _switchFork(forks[0]);
 
-            _swapAndRequestCCTPTransfer(domain, address(0), 1 ether, swapCalldata);
-        }
+        uint256 minAmount = 2_000 * 1e6;
+        address[] memory path = new address[](2);
+        path[0] = address(wETH);
+        path[1] = address(usdc);
+        bytes memory swapCalldata =
+            abi.encodeWithSelector(bytes4(0x472b43f3), 1 ether, minAmount, path, address(relayer));
+
+        _swapAndRequestCCTPTransfer(domain, address(0), 1 ether, swapCalldata);
     }
 
     function test_swapAndRequestCCTPTransfer_Token() public {
-        uint256 length = forks.length;
+        uint32 domain = 7;
+        _switchFork(forks[0]);
 
-        uint32[6] memory domains = [uint32(7), 6, 3, 2, 1, 0];
+        uint256 minAmount = 2_000 * 1e6;
+        address[] memory path = new address[](2);
+        path[0] = address(wETH);
+        path[1] = address(usdc);
+        bytes memory swapCalldata =
+            abi.encodeWithSelector(bytes4(0x472b43f3), 1 ether, minAmount, path, address(relayer));
 
-        for (uint256 i; i < 1; ++i) {
-            uint32 domain;
-            if (i < 6) {
-                domain = domains[i];
-            } else {
-                domain = domains[i - 6];
-            }
-            _switchFork(forks[i]);
-
-            uint256 minAmount = 200 * 1e6;
-            address[] memory path = new address[](2);
-            path[0] = address(wETH);
-            path[1] = address(usdc);
-            bytes memory swapCalldata = abi.encodeWithSignature(
-                "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
-                1 ether,
-                minAmount,
-                path,
-                address(relayer),
-                block.timestamp + 5 days
-            );
-
-            _swapAndRequestCCTPTransfer(domain, address(wETH), 1 ether, swapCalldata);
-        }
+        _swapAndRequestCCTPTransfer(domain, address(wETH), 1 ether, swapCalldata);
     }
 
     function test_swapAndRequestCCTPTransferWithCaller_ETH() public {
-        uint256 length = forks.length;
+        uint32 domain = 7;
+        _switchFork(forks[0]);
 
-        uint32[6] memory domains = [uint32(7), 6, 3, 2, 1, 0];
+        uint256 minAmount = 2_000 * 1e6;
+        address[] memory path = new address[](2);
+        path[0] = address(wETH);
+        path[1] = address(usdc);
+        bytes memory swapCalldata =
+            abi.encodeWithSelector(bytes4(0x472b43f3), 1 ether, minAmount, path, address(relayer));
 
-        for (uint256 i; i < 1; ++i) {
-            uint32 domain;
-            if (i < 6) {
-                domain = domains[i];
-            } else {
-                domain = domains[i - 6];
-            }
-            _switchFork(forks[i]);
-
-            uint256 minAmount = 2_000 * 1e6;
-            address[] memory path = new address[](2);
-            path[0] = address(wETH);
-            path[1] = address(usdc);
-            bytes memory swapCalldata = abi.encodeWithSignature(
-                "swapExactETHForTokens(uint256,address[],address,uint256)",
-                minAmount,
-                path,
-                address(relayer),
-                block.timestamp + 5 days
-            );
-
-            _swapAndRequestCCTPTransferWithCaller(domain, address(0), 1 ether, swapCalldata);
-        }
+        _swapAndRequestCCTPTransferWithCaller(domain, address(0), 1 ether, swapCalldata);
     }
 
     function test_swapAndRequestCCTPTransferWithCaller_Token() public {
-        uint256 length = forks.length;
+        uint32 domain = 7;
+        _switchFork(forks[0]);
 
-        uint32[6] memory domains = [uint32(7), 6, 3, 2, 1, 0];
+        uint256 minAmount = 2_000 * 1e6;
+        address[] memory path = new address[](2);
+        path[0] = address(wETH);
+        path[1] = address(usdc);
+        bytes memory swapCalldata =
+            abi.encodeWithSelector(bytes4(0x472b43f3), 1 ether, minAmount, path, address(relayer));
 
-        for (uint256 i; i < 1; ++i) {
-            uint32 domain;
-            if (i < 6) {
-                domain = domains[i];
-            } else {
-                domain = domains[i - 6];
-            }
-            _switchFork(forks[i]);
-
-            uint256 minAmount = 2_000 * 1e6;
-            address[] memory path = new address[](2);
-            path[0] = address(wETH);
-            path[1] = address(usdc);
-            bytes memory swapCalldata = abi.encodeWithSignature(
-                "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
-                1 ether,
-                minAmount,
-                path,
-                address(relayer),
-                block.timestamp + 5 days
-            );
-
-            _swapAndRequestCCTPTransferWithCaller(domain, address(wETH), 1 ether, swapCalldata);
-        }
+        _swapAndRequestCCTPTransferWithCaller(domain, address(wETH), 1 ether, swapCalldata);
     }
 
     function _swapAndRequestCCTPTransfer(
@@ -331,19 +276,35 @@ contract CCTPRelayerTest is Test {
 
         if (inputToken == address(0)) {
             vm.deal(ACTOR_1, inputAmount);
+            uint256 preSwapUserBalance = ACTOR_1.balance;
+            uint256 preSwapContractBalance = address(relayer).balance;
+
             vm.startPrank(ACTOR_1);
             relayer.swapAndRequestCCTPTransfer{value: inputAmount}(
                 inputToken, inputAmount, swapCalldata, domain, mintRecipent, address(usdc), feeAmount
             );
             vm.stopPrank();
+
+            assertTrue(ACTOR_1.balance < preSwapUserBalance, "User balance increased");
+            assertEq(address(relayer).balance, preSwapContractBalance, "Funds leftover in contract");
         } else {
             deal(inputToken, ACTOR_1, inputAmount);
+
+            uint256 preSwapUserBalance = IERC20(inputToken).balanceOf(ACTOR_1);
+            uint256 preSwapContractBalance = IERC20(inputToken).balanceOf(address(relayer));
+
             vm.startPrank(ACTOR_1);
             IERC20(inputToken).approve(address(relayer), inputAmount);
             relayer.swapAndRequestCCTPTransfer(
                 inputToken, inputAmount, swapCalldata, domain, mintRecipent, address(usdc), feeAmount
             );
             vm.stopPrank();
+
+            assertEq(IERC20(inputToken).allowance(address(relayer), relayer.swapRouter()), 0, "Left-over allowance");
+            assertTrue(IERC20(inputToken).balanceOf(ACTOR_1) < preSwapUserBalance, "User balance increased");
+            assertEq(
+                IERC20(inputToken).balanceOf(address(relayer)), preSwapContractBalance, "Funds leftover in contract"
+            );
         }
 
         assertEq(usdc.allowance(address(relayer), address(messenger)), 0, "Messenger Allowance Remaining After Payment");
@@ -363,6 +324,9 @@ contract CCTPRelayerTest is Test {
 
         if (inputToken == address(0)) {
             vm.deal(ACTOR_1, inputAmount);
+            uint256 preSwapUserBalance = ACTOR_1.balance;
+            uint256 preSwapContractBalance = address(relayer).balance;
+
             vm.startPrank(ACTOR_1);
             relayer.swapAndRequestCCTPTransferWithCaller{value: inputAmount}(
                 inputToken,
@@ -375,8 +339,15 @@ contract CCTPRelayerTest is Test {
                 keccak256(abi.encodePacked("random caller"))
             );
             vm.stopPrank();
+
+            assertTrue(ACTOR_1.balance < preSwapUserBalance, "User balance increased");
+            assertEq(address(relayer).balance, preSwapContractBalance, "Funds leftover in contract");
         } else {
             deal(inputToken, ACTOR_1, inputAmount);
+
+            uint256 preSwapUserBalance = IERC20(inputToken).balanceOf(ACTOR_1);
+            uint256 preSwapContractBalance = IERC20(inputToken).balanceOf(address(relayer));
+
             vm.startPrank(ACTOR_1);
             IERC20(inputToken).approve(address(relayer), inputAmount);
             relayer.swapAndRequestCCTPTransferWithCaller(
@@ -390,6 +361,12 @@ contract CCTPRelayerTest is Test {
                 keccak256(abi.encodePacked("random caller"))
             );
             vm.stopPrank();
+
+            assertEq(IERC20(inputToken).allowance(address(relayer), relayer.swapRouter()), 0, "Left-over allowance");
+            assertTrue(IERC20(inputToken).balanceOf(ACTOR_1) < preSwapUserBalance, "User balance increased");
+            assertEq(
+                IERC20(inputToken).balanceOf(address(relayer)), preSwapContractBalance, "Funds leftover in contract"
+            );
         }
 
         assertEq(usdc.allowance(address(relayer), address(messenger)), 0, "Messenger Allowance Remaining After Payment");
@@ -499,4 +476,8 @@ contract CCTPRelayerTest is Test {
         assertEq(usdc.allowance(ACTOR_1, address(relayer)), 0, "Allowance Remaining After Payment");
         assertEq(usdc.balanceOf(ACTOR_1), 0, "Balance Remaining After Payment");
     }
+
+    fallback() external payable {}
+
+    receive() external payable {}
 }
