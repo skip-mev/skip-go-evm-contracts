@@ -19,6 +19,3 @@
 [submodule "CCTPRelayer/lib/openzeppelin-contracts-upgradeable"]
 	path = CCTPRelayer/lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
-[submodule "CCTPRelayer/lib/swap-router-contracts"]
-	path = CCTPRelayer/lib/swap-router-contracts
-	url = https://github.com/Uniswap/swap-router-contracts
