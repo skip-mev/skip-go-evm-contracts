@@ -8,8 +8,13 @@ pragma solidity ^0.8.20;
 interface ICCTPRelayer {
     error ZeroAddress();
     error TransferFailed();
+    error ETHSendFailed();
     error MissingBalance();
     error PaymentCannotBeZero();
+    error SwapFailed();
+    error InsufficientSwapOutput();
+    error InsufficientNativeToken();
+    error Reentrancy();
 
     event PaymentForRelay(uint64 nonce, uint256 paymentAmount);
 

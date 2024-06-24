@@ -7,19 +7,17 @@ import {IAxelarGasService} from "lib/axelar-gmp-sdk-solidity/contracts/interface
 import {AxelarExecutableUpgradeable} from "./AxelarExecutableUpgradeable.sol";
 
 import {IERC20Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
-import {SafeERC20Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import {Ownable2StepUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
+import {SafeERC20Upgradeable} from
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {Ownable2StepUpgradeable} from
+    "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 /// @title AxelarHandler
 /// @notice allows to send and receive tokens to/from other chains through axelar gateway while wrapping the native tokens.
 /// @author Skip Protocol.
-contract AxelarHandler is
-    AxelarExecutableUpgradeable,
-    Ownable2StepUpgradeable,
-    UUPSUpgradeable
-{
+contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, UUPSUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     error EmptySymbol();
@@ -32,6 +30,11 @@ contract AxelarHandler is
     error NonNativeCannotBeUnwrapped();
     error NativePaymentFailed();
     error WrappingNotEnabled();
+    error SwapFailed();
+    error InsufficientSwapOutput();
+    error InsufficientNativeToken();
+    error ETHSendFailed();
+    error Reentrancy();
 
     bytes32 private _wETHSymbolHash;
 
@@ -40,18 +43,24 @@ contract AxelarHandler is
 
     mapping(address => bool) public approved;
 
-    bytes32 public constant DISABLED_SYMBOL =
-        keccak256(abi.encodePacked("DISABLED"));
+    bytes32 public constant DISABLED_SYMBOL = keccak256(abi.encodePacked("DISABLED"));
+
+    address public swapRouter;
+
+    bool internal reentrant;
+
+    modifier nonReentrant() {
+        if (reentrant) revert Reentrancy();
+        reentrant = true;
+        _;
+        reentrant = false;
+    }
 
     constructor() {
         _disableInitializers();
     }
 
-    function initialize(
-        address axGateway,
-        address axGasService,
-        string memory wethSymbol
-    ) external initializer {
+    function initialize(address axGateway, address axGasService, string memory wethSymbol) external initializer {
         if (axGasService == address(0)) revert ZeroAddress();
         if (bytes(wethSymbol).length == 0) revert EmptySymbol();
 
@@ -64,20 +73,23 @@ contract AxelarHandler is
         _wETHSymbolHash = keccak256(abi.encodePacked(wethSymbol));
     }
 
-    function setWETHSybol(string memory wethSymbol) external {
+    function setWETHSybol(string memory wethSymbol) external onlyOwner {
         if (bytes(wethSymbol).length == 0) revert EmptySymbol();
 
         wETHSymbol = wethSymbol;
         _wETHSymbolHash = keccak256(abi.encodePacked(wethSymbol));
     }
 
+    function setSwapRouter(address _swapRouter) external onlyOwner {
+        if (_swapRouter == address(0)) revert ZeroAddress();
+
+        swapRouter = _swapRouter;
+    }
+
     /// @notice Sends native currency to other chains through the axelar gateway.
     /// @param destinationChain name of the destination chain.
     /// @param destinationAddress address of the destination wallet in string form.
-    function sendNativeToken(
-        string memory destinationChain,
-        string memory destinationAddress
-    ) external payable {
+    function sendNativeToken(string memory destinationChain, string memory destinationAddress) external payable {
         if (_wETHSymbolHash == DISABLED_SYMBOL) revert WrappingNotEnabled();
         if (msg.value == 0) revert ZeroNativeSent();
 
@@ -88,12 +100,7 @@ contract AxelarHandler is
         IWETH(token).deposit{value: msg.value}();
 
         // Call Axelar Gateway to transfer the WETH.
-        gateway.sendToken(
-            destinationChain,
-            destinationAddress,
-            wETHSymbol,
-            msg.value
-        );
+        gateway.sendToken(destinationChain, destinationAddress, wETHSymbol, msg.value);
     }
 
     /// @notice Sends a ERC20 token to other chains through the axelar gateway.
@@ -134,31 +141,18 @@ contract AxelarHandler is
         if (_wETHSymbolHash == DISABLED_SYMBOL) revert WrappingNotEnabled();
         if (amount == 0) revert ZeroAmount();
         if (gasPaymentAmount == 0) revert ZeroGasAmount();
-        if (msg.value != amount + gasPaymentAmount)
+        if (msg.value != amount + gasPaymentAmount) {
             revert NativeSentDoesNotMatchAmounts();
+        }
 
         // Wrap the ether to be sent into the gateway.
         IWETH(_getTokenAddress(wETHSymbol)).deposit{value: amount}();
 
-        gasService.payNativeGasForContractCallWithToken{
-            value: gasPaymentAmount
-        }(
-            address(this),
-            destinationChain,
-            contractAddress,
-            payload,
-            wETHSymbol,
-            amount,
-            msg.sender
+        gasService.payNativeGasForContractCallWithToken{value: gasPaymentAmount}(
+            address(this), destinationChain, contractAddress, payload, wETHSymbol, amount, msg.sender
         );
 
-        gateway.callContractWithToken(
-            destinationChain,
-            contractAddress,
-            payload,
-            wETHSymbol,
-            amount
-        );
+        gateway.callContractWithToken(destinationChain, contractAddress, payload, wETHSymbol, amount);
     }
 
     /// @notice Sends ERC20 to other chain while calling a contract in the destination chain and paying gas with native token.
@@ -176,11 +170,12 @@ contract AxelarHandler is
         string memory symbol, // argument passed to both child contract calls
         uint256 amount, // argument passed to both child contract calls
         uint256 gasPaymentAmount // amount to send with gas payment call
-    ) external payable {
+    ) public payable {
         if (amount == 0) revert ZeroAmount();
         if (gasPaymentAmount == 0) revert ZeroGasAmount();
-        if (msg.value != gasPaymentAmount)
+        if (msg.value != gasPaymentAmount) {
             revert NativeSentDoesNotMatchAmounts();
+        }
         if (bytes(symbol).length == 0) revert EmptySymbol();
 
         // Get the token address.
@@ -189,27 +184,111 @@ contract AxelarHandler is
         // Transfer the amount from the msg.sender.
         token.safeTransferFrom(msg.sender, address(this), amount);
 
-        gasService.payNativeGasForContractCallWithToken{
-            value: gasPaymentAmount
-        }(
-            address(this),
-            destinationChain,
-            contractAddress,
-            payload,
-            symbol,
-            amount,
-            msg.sender
+        gasService.payNativeGasForContractCallWithToken{value: gasPaymentAmount}(
+            address(this), destinationChain, contractAddress, payload, symbol, amount, msg.sender
         );
 
         require(token.balanceOf(address(this)) >= amount, "NOT ENOUGH BALANCE");
 
-        gateway.callContractWithToken(
-            destinationChain,
-            contractAddress,
-            payload,
-            symbol,
-            amount
+        gateway.callContractWithToken(destinationChain, contractAddress, payload, symbol, amount);
+    }
+
+    /// @notice Swap the input token to a axelar supported token before doing a GMP Transfer.
+    /// @param inputToken address of the ERC20 token to be swapped.
+    /// @param amount the amount of either input tokens or native currency to be swapped.
+    /// @param destinationChain name of the destination chain.
+    /// @param contractAddress address of the contract that will be called in the destination chain.
+    /// @param payload the payload that will be sent to the contract in the destination chain.
+    /// @param symbol the symbol of the ERC20 token to be sent.
+    /// @param gasPaymentAmount the amount of native currency that will be used for paying gas.
+    /// @dev The amount of native currency sent (msg.value) must be equal to gasPaymentAmount.
+    function swapAndGmpTransferERC20Token(
+        address inputToken,
+        uint256 amount,
+        bytes memory swapCalldata,
+        string memory destinationChain,
+        string memory contractAddress,
+        bytes memory payload,
+        string memory symbol,
+        uint256 gasPaymentAmount
+    ) external payable nonReentrant {
+        if (amount == 0) revert ZeroAmount();
+        if (gasPaymentAmount == 0) revert ZeroGasAmount();
+        if (bytes(symbol).length == 0) revert EmptySymbol();
+
+        // Get the address of the output token based on the symbol provided
+        IERC20Upgradeable outputToken = IERC20Upgradeable(_getTokenAddress(symbol));
+
+        uint256 outputAmount;
+        if (inputToken == address(0)) {
+            // Native Token
+            if (amount + gasPaymentAmount != msg.value) revert InsufficientNativeToken();
+
+            // Get the contract's balances previous to the swap
+            uint256 preInputBalance = address(this).balance - msg.value;
+            uint256 preOutputBalance = outputToken.balanceOf(address(this));
+
+            // Call the swap router and perform the swap
+            (bool success,) = swapRouter.call{value: amount}(swapCalldata);
+            if (!success) revert SwapFailed();
+
+            // Get the contract's balances after the swap
+            uint256 postInputBalance = address(this).balance;
+            uint256 postOutputBalance = outputToken.balanceOf(address(this));
+
+            // Check that the contract's native token balance has increased
+            if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
+            outputAmount = postOutputBalance - preOutputBalance;
+
+            // Refund the remaining ETH
+            uint256 dust = postInputBalance - preInputBalance - gasPaymentAmount;
+            if (dust != 0) {
+                (bool ethSuccess,) = msg.sender.call{value: dust}("");
+                if (!ethSuccess) revert ETHSendFailed();
+            }
+        } else {
+            // ERC20 Token
+            if (gasPaymentAmount != msg.value) revert();
+
+            // Transfer input ERC20 tokens to the contract
+            IERC20Upgradeable token = IERC20Upgradeable(inputToken);
+            token.safeTransferFrom(msg.sender, address(this), amount);
+
+            // Approve the swap router to spend the input tokens
+            token.safeApprove(swapRouter, amount);
+
+            // Get the contract's balances previous to the swap
+            uint256 preInputBalance = token.balanceOf(address(this));
+            uint256 preOutputBalance = outputToken.balanceOf(address(this));
+
+            // Call the swap router and perform the swap
+            (bool success,) = swapRouter.call(swapCalldata);
+            if (!success) revert SwapFailed();
+
+            // Get the contract's balances after the swap
+            uint256 dust = token.balanceOf(address(this)) + amount - preInputBalance;
+            uint256 postOutputBalance = outputToken.balanceOf(address(this));
+
+            // Check that the contract's output token balance has increased
+            if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
+            outputAmount = postOutputBalance - preOutputBalance;
+
+            // Refund the remaining amount
+            if (dust != 0) {
+                token.transfer(msg.sender, dust);
+
+                // Revoke approval
+                token.safeApprove(swapRouter, 0);
+            }
+        }
+
+        // Pay the gas for the GMP transfer
+        gasService.payNativeGasForContractCallWithToken{value: gasPaymentAmount}(
+            address(this), destinationChain, contractAddress, payload, symbol, outputAmount, msg.sender
         );
+
+        // Perform the GMP transfer
+        gateway.callContractWithToken(destinationChain, contractAddress, payload, symbol, outputAmount);
     }
 
     /// @notice Sends ERC20 to other chain while calling a contract in the destination chain and paying gas with destination token.
@@ -236,11 +315,7 @@ contract AxelarHandler is
         IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(symbol));
 
         // Transfer the amount and gas payment amount from the msg.sender.
-        token.safeTransferFrom(
-            msg.sender,
-            address(this),
-            amount + gasPaymentAmount
-        );
+        token.safeTransferFrom(msg.sender, address(this), amount + gasPaymentAmount);
 
         gasService.payGasForContractCallWithToken(
             address(this),
@@ -254,13 +329,7 @@ contract AxelarHandler is
             msg.sender
         );
 
-        gateway.callContractWithToken(
-            destinationChain,
-            contractAddress,
-            payload,
-            symbol,
-            amount
-        );
+        gateway.callContractWithToken(destinationChain, contractAddress, payload, symbol, amount);
     }
 
     receive() external payable {}
@@ -269,21 +338,13 @@ contract AxelarHandler is
 
     /// @notice Ensures a token is supported by the axelar gateway, and returns it's address.
     /// @param symbol the symbol of the ERC20 token to be checked.
-    function _getTokenAddress(
-        string memory symbol
-    ) internal returns (address token) {
+    function _getTokenAddress(string memory symbol) internal returns (address token) {
         token = gateway.tokenAddresses(symbol);
         if (token == address(0)) revert TokenNotSupported();
 
         if (!approved[token]) {
-            IERC20Upgradeable(token).safeApprove(
-                address(gateway),
-                type(uint256).max
-            );
-            IERC20Upgradeable(token).safeApprove(
-                address(gasService),
-                type(uint256).max
-            );
+            IERC20Upgradeable(token).safeApprove(address(gateway), type(uint256).max);
+            IERC20Upgradeable(token).safeApprove(address(gasService), type(uint256).max);
             approved[token] = true;
         }
     }
@@ -302,26 +363,18 @@ contract AxelarHandler is
         string calldata tokenSymbol,
         uint256 amount
     ) internal override {
-        (bool unwrap, address destination) = abi.decode(
-            payload,
-            (bool, address)
-        );
-        IERC20Upgradeable token = IERC20Upgradeable(
-            _getTokenAddress(tokenSymbol)
-        );
+        (bool unwrap, address destination) = abi.decode(payload, (bool, address));
+        IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(tokenSymbol));
 
         // If unwrap is set and the token can be unwrapped.
-        if (
-            unwrap &&
-            _wETHSymbolHash != DISABLED_SYMBOL &&
-            keccak256(abi.encodePacked(tokenSymbol)) == _wETHSymbolHash
-        ) {
+        if (unwrap && _wETHSymbolHash != DISABLED_SYMBOL && keccak256(abi.encodePacked(tokenSymbol)) == _wETHSymbolHash)
+        {
             // Unwrap native token.
             IWETH weth = IWETH(address(token));
             weth.withdraw(amount);
 
             // Send it unwrapped to the destination
-            (bool success, ) = destination.call{value: amount}("");
+            (bool success,) = destination.call{value: amount}("");
 
             if (!success) {
                 revert NativePaymentFailed();
@@ -333,7 +386,5 @@ contract AxelarHandler is
         }
     }
 
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyOwner {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }

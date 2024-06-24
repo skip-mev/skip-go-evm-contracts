@@ -85,7 +85,7 @@ contract Environment is Test {
     string public constant AXELAR_WETH_SYMBOL_MANTLE = "axlETH";
     string public constant AXELAR_WETH_SYMBOL_FANTOM = "WFTM";
     string public constant AXELAR_WETH_SYMBOL_MOONBEAM = "WGLMR";
-    string public constant AXELAR_WETH_SYMBOL_CELO = "axlETH";
+    string public constant AXELAR_WETH_SYMBOL_CELO = "DISABLED";
     string public constant AXELAR_WETH_SYMBOL_FILECOIN = "WFIL";
     string public constant AXELAR_WETH_SYMBOL_KAVA = "axlETH";
     string public constant AXELAR_WETH_SYMBOL_BLAST = "axlETH";
