@@ -287,6 +287,102 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         emit PaymentForRelay(nonce, feeAmount);
     }
 
+    function swapAndRequestCCTPWithSolanaSwap(
+        address inputToken,
+        uint256 inputAmount,
+        bytes memory swapCalldata,
+        uint32 destinationDomain,
+        bytes32 mintRecipient,
+        address burnToken,
+        uint256 feeAmount,
+        bytes32 destinationCaller,
+        bytes memory solanaSwapPayload
+    ) external payable nonReentrant {
+        if (inputAmount == 0) revert PaymentCannotBeZero();
+        if (feeAmount == 0) revert PaymentCannotBeZero();
+
+        uint256 outputAmount;
+        if (inputToken == address(0)) {
+            // Native Token
+            if (inputAmount != msg.value) revert InsufficientNativeToken();
+
+            // Get the contract's balances previous to the swap
+            uint256 preInputBalance = address(this).balance - inputAmount;
+            uint256 preOutputBalance = usdc.balanceOf(address(this));
+
+            // Call the swap router and perform the swap
+            (bool success,) = swapRouter.call{value: inputAmount}(swapCalldata);
+            if (!success) revert SwapFailed();
+
+            // Get the contract's balances after the swap
+            uint256 postInputBalance = address(this).balance;
+            uint256 postOutputBalance = usdc.balanceOf(address(this));
+
+            // Check that the contract's native token balance has increased
+            if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
+            outputAmount = postOutputBalance - preOutputBalance;
+
+            // Refund the remaining ETH
+            uint256 dust = postInputBalance - preInputBalance;
+            if (dust != 0) {
+                (bool ethSuccess,) = msg.sender.call{value: dust}("");
+                if (!ethSuccess) revert ETHSendFailed();
+            }
+        } else {
+            IERC20 token = IERC20(inputToken);
+
+            // Get the contract's balances previous to the swap
+            uint256 preInputBalance = token.balanceOf(address(this));
+            uint256 preOutputBalance = usdc.balanceOf(address(this));
+
+            // Transfer input ERC20 tokens to the contract
+            token.transferFrom(msg.sender, address(this), inputAmount);
+
+            // Approve the swap router to spend the input tokens
+            token.approve(swapRouter, inputAmount);
+
+            // Call the swap router and perform the swap
+            (bool success,) = swapRouter.call(swapCalldata);
+            if (!success) revert SwapFailed();
+
+            // Get the contract's balances after the swap
+            uint256 postInputBalance = token.balanceOf(address(this));
+            uint256 postOutputBalance = usdc.balanceOf(address(this));
+
+            // Check that the contract's output token balance has increased
+            if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
+            outputAmount = postOutputBalance - preOutputBalance;
+
+            // Refund the remaining amount
+            uint256 dust = postInputBalance - preInputBalance;
+            if (dust != 0) {
+                token.transfer(msg.sender, dust);
+
+                // Revoke Approval
+                token.approve(swapRouter, 0);
+            }
+        }
+
+        // Check that output amount is enough to cover the fee
+        if (outputAmount <= feeAmount) revert InsufficientSwapOutput();
+        uint256 transferAmount = outputAmount - feeAmount;
+
+        // Only give allowance of the transfer amount, as we want the fee amount to stay in the contract.
+        usdc.approve(address(messenger), transferAmount);
+
+        // Call deposit for burn and save the nonce.
+        uint64 nonce = messenger.depositForBurnWithCaller(
+            transferAmount, destinationDomain, mintRecipient, burnToken, destinationCaller
+        );
+
+        // As user already paid for the fee we emit the payment event.
+        emit PaymentForRelay(nonce, feeAmount);
+
+        transmitter.sendMessageWithCaller(
+            destinationDomain, mintRecipient, destinationCaller, abi.encodePacked(nonce, solanaSwapPayload)
+        );
+    }
+
     function batchReceiveMessage(ICCTPRelayer.ReceiveCall[] memory receiveCalls) external {
         // Save gas by not retrieving the length on each loop.
         uint256 length = receiveCalls.length;

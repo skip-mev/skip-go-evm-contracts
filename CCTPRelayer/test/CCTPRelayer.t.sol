@@ -264,6 +264,20 @@ contract CCTPRelayerTest is Test {
         _swapAndRequestCCTPTransferWithCaller(domain, address(wETH), 1 ether, swapCalldata);
     }
 
+    function test_swapAndRequestCCTPWithSolanaSwap_Token() public {
+        uint32 domain = 7;
+        _switchFork(forks[0]);
+
+        uint256 minAmount = 2_000 * 1e6;
+        address[] memory path = new address[](2);
+        path[0] = address(wETH);
+        path[1] = address(usdc);
+        bytes memory swapCalldata =
+            abi.encodeWithSelector(bytes4(0x472b43f3), 1 ether, minAmount, path, address(relayer));
+
+        _swapAndRequestCCTPWithSolanaSwap(domain, address(wETH), 1 ether, swapCalldata);
+    }
+
     function _swapAndRequestCCTPTransfer(
         uint32 domain,
         address inputToken,
@@ -474,6 +488,70 @@ contract CCTPRelayerTest is Test {
         vm.stopPrank();
 
         assertEq(usdc.allowance(ACTOR_1, address(relayer)), 0, "Allowance Remaining After Payment");
+        assertEq(usdc.balanceOf(ACTOR_1), 0, "Balance Remaining After Payment");
+    }
+
+    function _swapAndRequestCCTPWithSolanaSwap(
+        uint32 domain,
+        address inputToken,
+        uint256 inputAmount,
+        bytes memory swapCalldata
+    ) internal {
+        uint256 feeAmount = 10 * 1e6;
+
+        bytes32 mintRecipent = bytes32(abi.encodePacked(ACTOR_1));
+
+        if (inputToken == address(0)) {
+            vm.deal(ACTOR_1, inputAmount);
+            uint256 preSwapUserBalance = ACTOR_1.balance;
+            uint256 preSwapContractBalance = address(relayer).balance;
+
+            vm.startPrank(ACTOR_1);
+            relayer.swapAndRequestCCTPWithSolanaSwap{value: inputAmount}(
+                inputToken,
+                inputAmount,
+                swapCalldata,
+                domain,
+                mintRecipent,
+                address(usdc),
+                feeAmount,
+                keccak256(abi.encodePacked("random caller")),
+                abi.encodePacked("solana calldata")
+            );
+            vm.stopPrank();
+
+            assertTrue(ACTOR_1.balance < preSwapUserBalance, "User balance increased");
+            assertEq(address(relayer).balance, preSwapContractBalance, "Funds leftover in contract");
+        } else {
+            deal(inputToken, ACTOR_1, inputAmount);
+
+            uint256 preSwapUserBalance = IERC20(inputToken).balanceOf(ACTOR_1);
+            uint256 preSwapContractBalance = IERC20(inputToken).balanceOf(address(relayer));
+
+            vm.startPrank(ACTOR_1);
+            IERC20(inputToken).approve(address(relayer), inputAmount);
+            relayer.swapAndRequestCCTPWithSolanaSwap(
+                inputToken,
+                inputAmount,
+                swapCalldata,
+                domain,
+                mintRecipent,
+                address(usdc),
+                feeAmount,
+                keccak256(abi.encodePacked("random caller")),
+                abi.encodePacked("solana calldata")
+            );
+            vm.stopPrank();
+
+            assertEq(IERC20(inputToken).allowance(address(relayer), relayer.swapRouter()), 0, "Left-over allowance");
+            assertTrue(IERC20(inputToken).balanceOf(ACTOR_1) < preSwapUserBalance, "User balance increased");
+            assertEq(
+                IERC20(inputToken).balanceOf(address(relayer)), preSwapContractBalance, "Funds leftover in contract"
+            );
+        }
+
+        assertEq(usdc.allowance(address(relayer), address(messenger)), 0, "Messenger Allowance Remaining After Payment");
+        assertEq(usdc.allowance(ACTOR_1, address(relayer)), 0, "Relayer Allowance Remaining After Payment");
         assertEq(usdc.balanceOf(ACTOR_1), 0, "Balance Remaining After Payment");
     }
 
