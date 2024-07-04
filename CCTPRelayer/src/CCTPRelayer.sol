@@ -300,6 +300,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
     ) external payable nonReentrant {
         if (inputAmount == 0) revert PaymentCannotBeZero();
         if (feeAmount == 0) revert PaymentCannotBeZero();
+        if (destinationDomain != 5) revert InvalidDomain(); // restrict domain to Solana
 
         uint256 outputAmount;
         if (inputToken == address(0)) {
