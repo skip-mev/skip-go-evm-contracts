@@ -22,4 +22,12 @@ import "./IReceiver.sol";
  * @title IMessageTransmitter
  * @notice Interface for message transmitters, which both relay and receive messages.
  */
-interface IMessageTransmitter is IRelayer, IReceiver {}
+interface IMessageTransmitter is IRelayer, IReceiver {
+    function attesterManager() external view returns (address);
+
+    function disableAttester(address attester) external;
+
+    function enableAttester(address newAttester) external;
+
+    function setSignatureThreshold(uint256 newSignatureThreshold) external;
+}

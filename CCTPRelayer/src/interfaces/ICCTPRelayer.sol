@@ -16,6 +16,7 @@ interface ICCTPRelayer {
     error InsufficientNativeToken();
     error Reentrancy();
     error InvalidDomain();
+    error SenderMustBeMessageTransmitter();
 
     event PaymentForRelay(uint64 nonce, uint256 paymentAmount);
 

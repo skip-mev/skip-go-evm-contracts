@@ -404,6 +404,35 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         }
     }
 
+    function mintAndSwap(ICCTPRelayer.ReceiveCall memory transferCall, ICCTPRelayer.ReceiveCall memory swapCall)
+        external
+    {
+        transmitter.receiveMessage(transferCall.message, transferCall.attestation);
+        transmitter.receiveMessage(swapCall.message, swapCall.attestation);
+    }
+
+    function handleReceiveMessage(uint32, bytes32, bytes calldata messageBody) public returns (bool) {
+        if (msg.sender != address(transmitter)) {
+            revert SenderMustBeMessageTransmitter();
+        }
+
+        // IMPORTANT: right now there is no validation that the amountIn matches the amount actually transferred
+        // if this is ever used in production, this should be added.
+        (uint256 amountIn, address recipient, bytes memory swapCalldata) =
+            abi.decode(messageBody, (uint256, address, bytes));
+
+        usdc.approve(swapRouter, amountIn);
+
+        (bool success,) = swapRouter.call(swapCalldata);
+        if (success) {
+            return true;
+        }
+
+        usdc.transfer(recipient, amountIn);
+
+        return true;
+    }
+
     function withdraw(address receiver, uint256 amount) external onlyOwner {
         // Check that the contract has enough balance.
         if (usdc.balanceOf(address(this)) < amount) revert MissingBalance();
