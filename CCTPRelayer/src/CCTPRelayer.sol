@@ -287,6 +287,40 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         emit PaymentForRelay(nonce, feeAmount);
     }
 
+    function requestCCTPTransferWithEVMSwap(
+        uint256 transferAmount,
+        uint32 destinationDomain,
+        bytes32 mintRecipient,
+        address burnToken,
+        uint256 feeAmount,
+        bytes32 destinationCaller,
+        address destinationRecipient,
+        bytes memory swapPayload
+    ) external payable nonReentrant {
+        if (transferAmount == 0) revert PaymentCannotBeZero();
+        if (feeAmount == 0) revert PaymentCannotBeZero();
+        // In order to save gas do the transfer only once, of both transfer amount and fee amount.
+        if (!usdc.transferFrom(msg.sender, address(this), transferAmount + feeAmount)) revert TransferFailed();
+
+        // Only give allowance of the transfer amount, as we want the fee amount to stay in the contract.
+        usdc.approve(address(messenger), transferAmount);
+
+        // Call deposit for burn and save the nonce.
+        uint64 nonce = messenger.depositForBurnWithCaller(
+            transferAmount, destinationDomain, mintRecipient, burnToken, destinationCaller
+        );
+
+        // As user already paid for the fee we emit the payment event.
+        emit PaymentForRelay(nonce, feeAmount);
+
+        transmitter.sendMessageWithCaller(
+            destinationDomain,
+            mintRecipient,
+            destinationCaller,
+            abi.encode(transferAmount, destinationRecipient, swapPayload)
+        );
+    }
+
     function swapAndRequestCCTPWithSolanaSwap(
         address inputToken,
         uint256 inputAmount,
@@ -407,11 +441,14 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
     function mintAndSwap(ICCTPRelayer.ReceiveCall memory transferCall, ICCTPRelayer.ReceiveCall memory swapCall)
         external
     {
+        // 1. store nonce, amount, etc.
         transmitter.receiveMessage(transferCall.message, transferCall.attestation);
         transmitter.receiveMessage(swapCall.message, swapCall.attestation);
+        // 3. clear nonce, amount, etc.
     }
 
     function handleReceiveMessage(uint32, bytes32, bytes calldata messageBody) public returns (bool) {
+        // 2. revert if nonce,amount, etc. not stored or is invalid
         if (msg.sender != address(transmitter)) {
             revert SenderMustBeMessageTransmitter();
         }

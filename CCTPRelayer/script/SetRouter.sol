@@ -9,8 +9,8 @@ contract DeploymentScript is BaseScript {
     function run() public {
         vm.startBroadcast();
 
-        CCTPRelayer relayer = CCTPRelayer(payable(address(0)));
-        relayer.setSwapRouter(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
+        CCTPRelayer relayer = CCTPRelayer(payable(0xf42B578720cce7aF4c9008E72Cda62e0fDF4780F));
+        relayer.setSwapRouter(0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24);
 
         vm.stopBroadcast();
     }

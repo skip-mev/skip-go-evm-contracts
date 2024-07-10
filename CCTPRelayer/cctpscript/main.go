@@ -27,8 +27,7 @@ func main() {
 		panic(err)
 	}
 
-	mintTx := common.HexToHash("0x929a0d27cfc682beb27560d30bb857dc97ffdee16785b06c8c8c355c429f35ce")
-	sendMessageTx := common.HexToHash("0xf68ff396662d5d2192b38ff980902c93df7538ef14915f1e09fdd75dd91eb01f")
+	mintTx := common.HexToHash("0x8486b4432432189df0e37c614ec29d1b44ed8c5cee092db80d4adc1f64a5d8fb")
 
 	receipt, err := client.TransactionReceipt(context.Background(), mintTx)
 	if err != nil {
@@ -49,36 +48,6 @@ func main() {
 		rawMessageSentBytes := event["message"].([]byte)
 
 		fmt.Println("TRANSFER MESSAGE:")
-
-		fmt.Println("message bytes:")
-		fmt.Println(hex.EncodeToString(rawMessageSentBytes)[2:])
-
-		hashed := crypto.Keccak256(rawMessageSentBytes)
-		messageHash := "0x" + hex.EncodeToString(hashed)
-
-		fmt.Println("get attestation here:")
-		fmt.Printf("https://iris-api.circle.com/v1/attestations/%s\n", messageHash)
-	}
-
-	receipt, err = client.TransactionReceipt(context.Background(), sendMessageTx)
-	if err != nil {
-		panic(err)
-	}
-
-	for _, log := range receipt.Logs {
-		if log.Topics[0] != common.HexToHash("0x8c5261668696ce22758910d05bab8f186d6eb247ceac2af2e82c7dc17669b036") {
-			continue
-		}
-
-		event := make(map[string]interface{})
-		err := messageSentABI.UnpackIntoMap(event, "MessageSent", log.Data)
-		if err != nil {
-			panic(err)
-		}
-
-		fmt.Println("SWAP MESSAGE:")
-
-		rawMessageSentBytes := event["message"].([]byte)
 
 		fmt.Println("message bytes:")
 		fmt.Println(hex.EncodeToString(rawMessageSentBytes)[2:])
