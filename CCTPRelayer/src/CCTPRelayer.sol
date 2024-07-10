@@ -413,9 +413,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         // As user already paid for the fee we emit the payment event.
         emit PaymentForRelay(nonce, feeAmount);
 
-        transmitter.sendMessageWithCaller(
-            destinationDomain, mintRecipient, destinationCaller, abi.encodePacked(nonce, solanaSwapPayload)
-        );
+        transmitter.sendMessageWithCaller(destinationDomain, mintRecipient, destinationCaller, solanaSwapPayload);
     }
 
     function batchReceiveMessage(ICCTPRelayer.ReceiveCall[] memory receiveCalls) external {
