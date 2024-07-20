@@ -35,6 +35,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     error InsufficientNativeToken();
     error ETHSendFailed();
     error Reentrancy();
+    error FunctionCodeNotSupported();
 
     bytes32 private _wETHSymbolHash;
 
@@ -363,26 +364,67 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         string calldata tokenSymbol,
         uint256 amount
     ) internal override {
-        (bool unwrap, address destination) = abi.decode(payload, (bool, address));
         IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(tokenSymbol));
 
-        // If unwrap is set and the token can be unwrapped.
-        if (unwrap && _wETHSymbolHash != DISABLED_SYMBOL && keccak256(abi.encodePacked(tokenSymbol)) == _wETHSymbolHash)
-        {
-            // Unwrap native token.
-            IWETH weth = IWETH(address(token));
-            weth.withdraw(amount);
+        (uint8 functionCode, bytes memory data) = abi.decode(payload, (uint8, bytes));
+        if (functionCode == 0) {
+            (bool unwrap, address destination) = abi.decode(data, (bool, address));
+            // If unwrap is set and the token can be unwrapped.
+            if (
+                unwrap && _wETHSymbolHash != DISABLED_SYMBOL
+                    && keccak256(abi.encodePacked(tokenSymbol)) == _wETHSymbolHash
+            ) {
+                // Unwrap native token.
+                IWETH weth = IWETH(address(token));
+                weth.withdraw(amount);
 
-            // Send it unwrapped to the destination
-            (bool success,) = destination.call{value: amount}("");
+                // Send it unwrapped to the destination
+                (bool success,) = destination.call{value: amount}("");
 
-            if (!success) {
-                revert NativePaymentFailed();
+                if (!success) {
+                    revert NativePaymentFailed();
+                }
             }
-        }
-        // Just send the tokens received to the destination.
-        else {
-            token.safeTransfer(destination, amount);
+            // Just send the tokens received to the destination.
+            else {
+                token.safeTransfer(destination, amount);
+            }
+        } else if (functionCode == 1) {
+            (address destination, address outputTokenAddr, bytes memory swapCalldata) =
+                abi.decode(data, (address, address, bytes));
+
+            IERC20Upgradeable outputToken = IERC20Upgradeable(outputTokenAddr);
+
+            // Approve the swap router to spend the input tokens
+            token.safeApprove(swapRouter, amount);
+
+            // Get the contract's balances previous to the swap
+            uint256 preInputBalance = token.balanceOf(address(this));
+            uint256 preOutputBalance = outputToken.balanceOf(address(this));
+
+            // Call the swap router and perform the swap
+            (bool success,) = swapRouter.call(swapCalldata);
+            if (!success) revert SwapFailed();
+
+            // Get the contract's balances after the swap
+            uint256 dust = token.balanceOf(address(this)) + amount - preInputBalance;
+            uint256 postOutputBalance = outputToken.balanceOf(address(this));
+
+            // Check that the contract's output token balance has increased
+            if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
+            uint256 outputAmount = postOutputBalance - preOutputBalance;
+
+            outputToken.transfer(destination, outputAmount);
+
+            // Refund the remaining amount
+            if (dust != 0) {
+                token.transfer(destination, dust);
+
+                // Revoke approval
+                token.safeApprove(swapRouter, 0);
+            }
+        } else {
+            revert FunctionCodeNotSupported();
         }
     }
 
