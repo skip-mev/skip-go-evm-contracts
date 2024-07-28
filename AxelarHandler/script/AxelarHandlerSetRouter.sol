@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 
 import {AxelarHandler} from "src/AxelarHandler.sol";
 
-contract AxelarHandlerUpgradeScript is Script {
+contract AxelarHandlerSetRouterScript is Script {
     AxelarHandler public handler;
     address public router;
 
