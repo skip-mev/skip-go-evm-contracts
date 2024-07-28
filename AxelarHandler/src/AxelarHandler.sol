@@ -14,6 +14,8 @@ import {Ownable2StepUpgradeable} from
 import {UUPSUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
+import {ISwapRouter02} from "./interfaces/ISwapRouter02.sol";
+
 /// @title AxelarHandler
 /// @notice allows to send and receive tokens to/from other chains through axelar gateway while wrapping the native tokens.
 /// @author Skip Protocol.
@@ -37,6 +39,17 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     error Reentrancy();
     error FunctionCodeNotSupported();
 
+    enum Commands {
+        SendToken,
+        SendNative,
+        ExactInputSingleSwap,
+        ExactInputSwap,
+        ExactOutputSingleSwap,
+        ExactOutputSwap,
+        ExactTokensForTokensSwap,
+        TokensForExactTokensSwap
+    }
+
     bytes32 private _wETHSymbolHash;
 
     string public wETHSymbol;
@@ -46,7 +59,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
     bytes32 public constant DISABLED_SYMBOL = keccak256(abi.encodePacked("DISABLED"));
 
-    address public swapRouter;
+    ISwapRouter02 public swapRouter;
 
     bool internal reentrant;
 
@@ -84,7 +97,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     function setSwapRouter(address _swapRouter) external onlyOwner {
         if (_swapRouter == address(0)) revert ZeroAddress();
 
-        swapRouter = _swapRouter;
+        swapRouter = ISwapRouter02(_swapRouter);
     }
 
     /// @notice Sends native currency to other chains through the axelar gateway.
@@ -230,7 +243,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             uint256 preOutputBalance = outputToken.balanceOf(address(this));
 
             // Call the swap router and perform the swap
-            (bool success,) = swapRouter.call{value: amount}(swapCalldata);
+            (bool success,) = address(swapRouter).call{value: amount}(swapCalldata);
             if (!success) revert SwapFailed();
 
             // Get the contract's balances after the swap
@@ -256,14 +269,14 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             token.safeTransferFrom(msg.sender, address(this), amount);
 
             // Approve the swap router to spend the input tokens
-            token.safeApprove(swapRouter, amount);
+            token.safeApprove(address(swapRouter), amount);
 
             // Get the contract's balances previous to the swap
             uint256 preInputBalance = token.balanceOf(address(this));
             uint256 preOutputBalance = outputToken.balanceOf(address(this));
 
             // Call the swap router and perform the swap
-            (bool success,) = swapRouter.call(swapCalldata);
+            (bool success,) = address(swapRouter).call(swapCalldata);
             if (!success) revert SwapFailed();
 
             // Get the contract's balances after the swap
@@ -279,7 +292,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
                 token.transfer(msg.sender, dust);
 
                 // Revoke approval
-                token.safeApprove(swapRouter, 0);
+                token.safeApprove(address(swapRouter), 0);
             }
         }
 
@@ -366,65 +379,150 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     ) internal override {
         IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(tokenSymbol));
 
-        (uint8 functionCode, bytes memory data) = abi.decode(payload, (uint8, bytes));
-        if (functionCode == 0) {
-            (bool unwrap, address destination) = abi.decode(data, (bool, address));
-            // If unwrap is set and the token can be unwrapped.
-            if (
-                unwrap && _wETHSymbolHash != DISABLED_SYMBOL
-                    && keccak256(abi.encodePacked(tokenSymbol)) == _wETHSymbolHash
-            ) {
-                // Unwrap native token.
-                IWETH weth = IWETH(address(token));
-                weth.withdraw(amount);
-
-                // Send it unwrapped to the destination
-                (bool success,) = destination.call{value: amount}("");
-
-                if (!success) {
-                    revert NativePaymentFailed();
-                }
+        (Commands command, bytes memory data) = abi.decode(payload, (Commands, bytes));
+        if (command == Commands.SendToken) {
+            _sendToken(address(token), amount, data);
+        } else if (command == Commands.SendNative) {
+            if (_wETHSymbolHash != DISABLED_SYMBOL && keccak256(abi.encodePacked(tokenSymbol)) == _wETHSymbolHash) {
+                _sendNative(address(token), amount, data);
+            } else {
+                _sendToken(address(token), amount, data);
             }
-            // Just send the tokens received to the destination.
-            else {
-                token.safeTransfer(destination, amount);
-            }
-        } else if (functionCode == 1) {
-            (address destination, address outputTokenAddr, bytes memory swapCalldata) =
-                abi.decode(data, (address, address, bytes));
-
-            IERC20Upgradeable outputToken = IERC20Upgradeable(outputTokenAddr);
-
-            // Approve the swap router to spend the input tokens
-            token.safeApprove(swapRouter, amount);
-
-            // Get the contract's balances previous to the swap
-            uint256 preInputBalance = token.balanceOf(address(this));
-            uint256 preOutputBalance = outputToken.balanceOf(address(this));
-
-            // Call the swap router and perform the swap
-            (bool success,) = swapRouter.call(swapCalldata);
-            if (!success) revert SwapFailed();
-
-            // Get the contract's balances after the swap
-            uint256 dust = token.balanceOf(address(this)) + amount - preInputBalance;
-            uint256 postOutputBalance = outputToken.balanceOf(address(this));
-
-            // Check that the contract's output token balance has increased
-            if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
-            uint256 outputAmount = postOutputBalance - preOutputBalance;
-
-            outputToken.transfer(destination, outputAmount);
-
-            // Refund the remaining amount
-            if (dust != 0) {
-                token.transfer(destination, dust);
-
-                // Revoke approval
-                token.safeApprove(swapRouter, 0);
-            }
+        } else if (command == Commands.ExactInputSingleSwap) {
+            _exactInputSingleSwap(address(token), amount, data);
+        } else if (command == Commands.ExactInputSwap) {
+            _exactInputSwap(address(token), amount, data);
+        } else if (command == Commands.ExactOutputSingleSwap) {
+            _exactOutputSingleSwap(address(token), amount, data);
+        } else if (command == Commands.ExactOutputSwap) {
+            _exactOutputSwap(address(token), amount, data);
+        } else if (command == Commands.ExactTokensForTokensSwap) {
+            _exactTokensForTokensSwap(address(token), amount, data);
+        } else if (command == Commands.TokensForExactTokensSwap) {
+            _tokensForExactTokensSwap(address(token), amount, data);
         } else {
             revert FunctionCodeNotSupported();
+        }
+    }
+
+    function _sendToken(address token, uint256 amount, bytes memory data) internal {
+        address destination = abi.decode(data, (address));
+
+        IERC20Upgradeable(token).safeTransfer(destination, amount);
+    }
+
+    function _sendNative(address token, uint256 amount, bytes memory data) internal {
+        address destination = abi.decode(data, (address));
+
+        // Unwrap native token.
+        IWETH weth = IWETH(token);
+        weth.withdraw(amount);
+
+        // Send it unwrapped to the destination
+        (bool success,) = destination.call{value: amount}("");
+
+        if (!success) {
+            revert NativePaymentFailed();
+        }
+    }
+
+    function _exactInputSingleSwap(address token, uint256 amount, bytes memory data) internal {
+        ISwapRouter02.ExactInputSingleParams memory params;
+        params.tokenIn = token;
+        params.amountIn = amount;
+
+        (params.tokenOut, params.fee, params.recipient, params.amountOutMinimum, params.sqrtPriceLimitX96) =
+            abi.decode(data, (address, uint24, address, uint256, uint160));
+
+        uint256 preBal = _preSwap(token, amount);
+        swapRouter.exactInputSingle(params);
+        _postSwap(token, params.recipient, preBal);
+    }
+
+    function _exactInputSwap(address token, uint256 amount, bytes memory data) internal {
+        ISwapRouter02.ExactInputParams memory params;
+        params.amountIn = amount;
+
+        (params.path, params.recipient, params.amountOutMinimum) = abi.decode(data, (bytes, address, uint256));
+
+        // if (address(bytes20(params.path[:20])) != token) {
+        //     revert("Test, not token in path");
+        // }
+
+        uint256 preBal = _preSwap(token, amount);
+        swapRouter.exactInput(params);
+        _postSwap(token, params.recipient, preBal);
+    }
+
+    function _exactOutputSingleSwap(address token, uint256 amount, bytes memory data) internal {
+        ISwapRouter02.ExactOutputSingleParams memory params;
+        params.tokenIn = token;
+        params.amountInMaximum = amount;
+
+        (params.tokenOut, params.fee, params.recipient, params.amountOut, params.sqrtPriceLimitX96) =
+            abi.decode(data, (address, uint24, address, uint256, uint160));
+
+        uint256 preBal = _preSwap(token, amount);
+        swapRouter.exactOutputSingle(params);
+        _postSwap(token, params.recipient, preBal);
+    }
+
+    function _exactOutputSwap(address token, uint256 amount, bytes memory data) internal {
+        ISwapRouter02.ExactOutputParams memory params;
+        params.amountInMaximum = amount;
+
+        (params.path, params.recipient, params.amountOut) = abi.decode(data, (bytes, address, uint256));
+
+        // if (address(bytes20(params.path[:20])) != token) {
+        //     revert("Test, not token in path");
+        // }
+
+        uint256 preBal = _preSwap(token, amount);
+        swapRouter.exactOutput(params);
+        _postSwap(token, params.recipient, preBal);
+    }
+
+    function _exactTokensForTokensSwap(address token, uint256 amount, bytes memory data) internal {
+        (uint256 amountOutMin, address[] memory path, address destination) =
+            abi.decode(data, (uint256, address[], address));
+
+        if (path[0] != token) {
+            revert("Test, not token in path");
+        }
+
+        uint256 preBal = _preSwap(token, amount);
+        swapRouter.swapExactTokensForTokens(amount, amountOutMin, path, destination);
+        _postSwap(token, destination, preBal);
+    }
+
+    function _tokensForExactTokensSwap(address token, uint256 amount, bytes memory data) internal {
+        (uint256 amountOut, address[] memory path, address destination) =
+            abi.decode(data, (uint256, address[], address));
+
+        if (path[0] != token) {
+            revert("Test, not token in path");
+        }
+
+        uint256 preBal = _preSwap(token, amount);
+        swapRouter.swapExactTokensForTokens(amount, amountOut, path, destination);
+        _postSwap(token, destination, preBal);
+    }
+
+    function _preSwap(address _tokenIn, uint256 amount) internal returns (uint256 preBal) {
+        IERC20Upgradeable tokenIn = IERC20Upgradeable(_tokenIn);
+
+        preBal = tokenIn.balanceOf(address(this)) - amount;
+
+        tokenIn.safeApprove(address(swapRouter), amount);
+    }
+
+    function _postSwap(address _tokenIn, address destination, uint256 preBal) internal {
+        IERC20Upgradeable tokenIn = IERC20Upgradeable(_tokenIn);
+
+        uint256 dust = tokenIn.balanceOf(address(this)) - preBal;
+        if (dust != 0) {
+            tokenIn.safeApprove(address(swapRouter), 0);
+            tokenIn.transfer(destination, dust);
         }
     }
 
