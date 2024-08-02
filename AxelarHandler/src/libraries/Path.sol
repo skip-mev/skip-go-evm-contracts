@@ -169,7 +169,7 @@ library BytesLib {
         assembly {
             let m := mload(0x40)
             _address := and(_address, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-            mstore(add(m, 20), xor(0x140000000000000000000000000000000000000000, a))
+            mstore(add(m, 20), xor(0x140000000000000000000000000000000000000000, _address))
             mstore(0x40, add(m, 52))
             tempBytes := m
         }
