@@ -15,7 +15,7 @@ import {UUPSUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 import {ISwapRouter02} from "./interfaces/ISwapRouter02.sol";
-import {Path} from "./libraries/Path.sol";
+import {BytesLib, Path} from "./libraries/Path.sol";
 
 /// @title AxelarHandler
 /// @notice allows to send and receive tokens to/from other chains through axelar gateway while wrapping the native tokens.
@@ -483,7 +483,10 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
         (address tokenA,,) = params.path.decodeFirstPool();
 
-        if (tokenA != token) {}
+        if (tokenA != token) {
+            bytes memory tokenReplace = BytesLib.toBytes(token);
+            params.path = BytesLib.concat(tokenReplace, BytesLib.slice(params.path, 20, params.path.length - 20));
+        }
 
         (, tokenOut,) = params.path.decodeLastPool();
 
@@ -550,7 +553,10 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
         (address tokenA,,) = params.path.decodeFirstPool();
 
-        if (tokenA != token) {}
+        if (tokenA != token) {
+            bytes memory tokenReplace = BytesLib.toBytes(token);
+            params.path = BytesLib.concat(tokenReplace, BytesLib.slice(params.path, 20, params.path.length - 20));
+        }
 
         (, tokenOut,) = params.path.decodeLastPool();
 
