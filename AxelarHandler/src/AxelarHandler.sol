@@ -15,12 +15,14 @@ import {UUPSUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 import {ISwapRouter02} from "./interfaces/ISwapRouter02.sol";
+import {Path} from "./libraries/Path.sol";
 
 /// @title AxelarHandler
 /// @notice allows to send and receive tokens to/from other chains through axelar gateway while wrapping the native tokens.
 /// @author Skip Protocol.
 contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, UUPSUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
+    using Path for bytes;
 
     error EmptySymbol();
     error NativeSentDoesNotMatchAmounts();
@@ -42,12 +44,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     enum Commands {
         SendToken,
         SendNative,
-        ExactInputSingleSwap,
-        ExactInputSwap,
-        ExactOutputSingleSwap,
-        ExactOutputSwap,
-        ExactTokensForTokensSwap,
-        TokensForExactTokensSwap
+        Swap
     }
 
     bytes32 private _wETHSymbolHash;
@@ -377,43 +374,61 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         string calldata tokenSymbol,
         uint256 amount
     ) internal override {
-        IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(tokenSymbol));
+        address token = _getTokenAddress(tokenSymbol);
+        IERC20Upgradeable tokenIn = IERC20Upgradeable(token);
 
         (Commands command, bytes memory data) = abi.decode(payload, (Commands, bytes));
         if (command == Commands.SendToken) {
-            _sendToken(address(token), amount, data);
+            address destination = abi.decode(data, (address));
+            _sendToken(token, amount, destination);
         } else if (command == Commands.SendNative) {
+            address destination = abi.decode(data, (address));
             if (_wETHSymbolHash != DISABLED_SYMBOL && keccak256(abi.encodePacked(tokenSymbol)) == _wETHSymbolHash) {
-                _sendNative(address(token), amount, data);
+                _sendNative(token, amount, destination);
             } else {
-                _sendToken(address(token), amount, data);
+                _sendToken(token, amount, destination);
             }
-        } else if (command == Commands.ExactInputSingleSwap) {
-            _exactInputSingleSwap(address(token), amount, data);
-        } else if (command == Commands.ExactInputSwap) {
-            _exactInputSwap(address(token), amount, data);
-        } else if (command == Commands.ExactOutputSingleSwap) {
-            _exactOutputSingleSwap(address(token), amount, data);
-        } else if (command == Commands.ExactOutputSwap) {
-            _exactOutputSwap(address(token), amount, data);
-        } else if (command == Commands.ExactTokensForTokensSwap) {
-            _exactTokensForTokensSwap(address(token), amount, data);
-        } else if (command == Commands.TokensForExactTokensSwap) {
-            _tokensForExactTokensSwap(address(token), amount, data);
+        } else if (command == Commands.Swap) {
+            (address destination, uint256 amountOutMin, bool unwrapOut, bytes[] memory swaps) =
+                abi.decode(data, (address, uint256, bool, bytes[]));
+
+            uint256 length = swaps.length;
+            for (uint256 i; i < length; ++i) {
+                (uint8 swapFunction, bytes memory swapPayload) = abi.decode(swaps[i], (uint8, bytes));
+
+                if (swapFunction == uint8(0)) {
+                    (token, amount) = _exactInputSingleSwap(token, destination, amount, swapPayload);
+                } else if (swapFunction == uint8(1)) {
+                    (token, amount) = _exactInputSwap(token, destination, amount, swapPayload);
+                } else if (swapFunction == uint8(2)) {
+                    (token, amount) = _exactTokensForTokensSwap(token, destination, amount, swapPayload);
+                } else if (swapFunction == uint8(3)) {
+                    (token, amount) = _exactOutputSingleSwap(token, destination, amount, swapPayload);
+                } else if (swapFunction == uint8(4)) {
+                    (token, amount) = _exactOutputSwap(token, destination, amount, swapPayload);
+                } else if (swapFunction == uint8(5)) {
+                    (token, amount) = _tokensForExactTokensSwap(token, destination, amount, swapPayload);
+                } else {
+                    revert FunctionCodeNotSupported();
+                }
+            }
+
+            if (amount < amountOutMin) revert InsufficientSwapOutput();
+            if (unwrapOut && token == _getTokenAddress(wETHSymbol)) {
+                _sendNative(token, amount, destination);
+            } else {
+                _sendToken(token, amount, destination);
+            }
         } else {
             revert FunctionCodeNotSupported();
         }
     }
 
-    function _sendToken(address token, uint256 amount, bytes memory data) internal {
-        address destination = abi.decode(data, (address));
-
+    function _sendToken(address token, uint256 amount, address destination) internal {
         IERC20Upgradeable(token).safeTransfer(destination, amount);
     }
 
-    function _sendNative(address token, uint256 amount, bytes memory data) internal {
-        address destination = abi.decode(data, (address));
-
+    function _sendNative(address token, uint256 amount, address destination) internal {
         // Unwrap native token.
         IWETH weth = IWETH(token);
         weth.withdraw(amount);
@@ -426,103 +441,191 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         }
     }
 
-    function _exactInputSingleSwap(address token, uint256 amount, bytes memory data) internal {
+    function _exactInputSingleSwap(address token, address destination, uint256 amount, bytes memory data)
+        internal
+        returns (address tokenOut, uint256 amountOut)
+    {
         ISwapRouter02.ExactInputSingleParams memory params;
+        (tokenOut, params.fee, params.sqrtPriceLimitX96) = abi.decode(data, (address, uint24, uint160));
+
         params.tokenIn = token;
+        params.tokenOut = tokenOut;
         params.amountIn = amount;
+        params.recipient = address(this);
 
-        (params.tokenOut, params.fee, params.recipient, params.amountOutMinimum, params.sqrtPriceLimitX96) =
-            abi.decode(data, (address, uint24, address, uint256, uint160));
+        IERC20Upgradeable tokenSwapIn = IERC20Upgradeable(token);
+        IERC20Upgradeable tokenSwapOut = IERC20Upgradeable(tokenOut);
 
-        uint256 preBal = _preSwap(token, amount);
+        uint256 preBalIn = tokenSwapIn.balanceOf(address(this)) - amount;
+        uint256 preBalOut = tokenSwapOut.balanceOf(address(this));
+
+        tokenSwapIn.safeApprove(address(swapRouter), amount);
         swapRouter.exactInputSingle(params);
-        _postSwap(token, params.recipient, preBal);
+
+        uint256 dustIn = tokenSwapIn.balanceOf(address(this)) - preBalIn;
+        amountOut = tokenSwapOut.balanceOf(address(this)) - preBalOut;
+
+        if (dustIn != 0) {
+            tokenSwapIn.safeApprove(address(swapRouter), 0);
+            tokenSwapIn.safeTransfer(destination, dustIn);
+        }
     }
 
-    function _exactInputSwap(address token, uint256 amount, bytes memory data) internal {
+    function _exactInputSwap(address token, address destination, uint256 amount, bytes memory data)
+        internal
+        returns (address tokenOut, uint256 amountOut)
+    {
         ISwapRouter02.ExactInputParams memory params;
+        (params.path) = abi.decode(data, (bytes));
+
+        params.recipient = address(this);
         params.amountIn = amount;
 
-        (params.path, params.recipient, params.amountOutMinimum) = abi.decode(data, (bytes, address, uint256));
+        (address tokenA,,) = params.path.decodeFirstPool();
 
-        // if (address(bytes20(params.path[:20])) != token) {
-        //     revert("Test, not token in path");
-        // }
+        if (tokenA != token) {}
 
-        uint256 preBal = _preSwap(token, amount);
+        (, tokenOut,) = params.path.decodeLastPool();
+
+        IERC20Upgradeable tokenSwapIn = IERC20Upgradeable(token);
+        IERC20Upgradeable tokenSwapOut = IERC20Upgradeable(tokenOut);
+
+        uint256 preBalIn = tokenSwapIn.balanceOf(address(this)) - amount;
+        uint256 preBalOut = tokenSwapOut.balanceOf(address(this));
+
+        tokenSwapIn.safeApprove(address(swapRouter), amount);
         swapRouter.exactInput(params);
-        _postSwap(token, params.recipient, preBal);
+
+        uint256 dustIn = tokenSwapIn.balanceOf(address(this)) - preBalIn;
+        amountOut = tokenSwapOut.balanceOf(address(this)) - preBalOut;
+
+        if (dustIn != 0) {
+            tokenSwapIn.safeApprove(address(swapRouter), 0);
+            tokenSwapIn.safeTransfer(destination, dustIn);
+        }
     }
 
-    function _exactOutputSingleSwap(address token, uint256 amount, bytes memory data) internal {
+    function _exactOutputSingleSwap(address token, address destination, uint256 amount, bytes memory data)
+        internal
+        returns (address tokenOut, uint256 amountOut)
+    {
         ISwapRouter02.ExactOutputSingleParams memory params;
+        (tokenOut, amountOut, params.fee, params.sqrtPriceLimitX96) =
+            abi.decode(data, (address, uint256, uint24, uint160));
+
         params.tokenIn = token;
+        params.tokenOut = tokenOut;
+        params.recipient = address(this);
+        params.amountOut = amountOut;
         params.amountInMaximum = amount;
 
-        (params.tokenOut, params.fee, params.recipient, params.amountOut, params.sqrtPriceLimitX96) =
-            abi.decode(data, (address, uint24, address, uint256, uint160));
+        IERC20Upgradeable tokenSwapIn = IERC20Upgradeable(token);
+        IERC20Upgradeable tokenSwapOut = IERC20Upgradeable(tokenOut);
 
-        uint256 preBal = _preSwap(token, amount);
+        uint256 preBalIn = tokenSwapIn.balanceOf(address(this)) - amount;
+        uint256 preBalOut = tokenSwapOut.balanceOf(address(this));
+
+        tokenSwapIn.safeApprove(address(swapRouter), amount);
         swapRouter.exactOutputSingle(params);
-        _postSwap(token, params.recipient, preBal);
+
+        uint256 dustIn = tokenSwapIn.balanceOf(address(this)) - preBalIn;
+        amountOut = tokenSwapOut.balanceOf(address(this)) - preBalOut;
+
+        if (dustIn != 0) {
+            tokenSwapIn.safeApprove(address(swapRouter), 0);
+            tokenSwapIn.safeTransfer(destination, dustIn);
+        }
     }
 
-    function _exactOutputSwap(address token, uint256 amount, bytes memory data) internal {
+    function _exactOutputSwap(address token, address destination, uint256 amount, bytes memory data)
+        internal
+        returns (address tokenOut, uint256 amountOut)
+    {
         ISwapRouter02.ExactOutputParams memory params;
+        (amountOut, params.path) = abi.decode(data, (uint256, bytes));
+
+        params.recipient = address(this);
+        params.amountOut = amountOut;
         params.amountInMaximum = amount;
 
-        (params.path, params.recipient, params.amountOut) = abi.decode(data, (bytes, address, uint256));
+        (address tokenA,,) = params.path.decodeFirstPool();
 
-        // if (address(bytes20(params.path[:20])) != token) {
-        //     revert("Test, not token in path");
-        // }
+        if (tokenA != token) {}
 
-        uint256 preBal = _preSwap(token, amount);
+        (, tokenOut,) = params.path.decodeLastPool();
+
+        IERC20Upgradeable tokenSwapIn = IERC20Upgradeable(token);
+        IERC20Upgradeable tokenSwapOut = IERC20Upgradeable(tokenOut);
+
+        uint256 preBalIn = tokenSwapIn.balanceOf(address(this)) - amount;
+        uint256 preBalOut = tokenSwapOut.balanceOf(address(this));
+
+        tokenSwapIn.safeApprove(address(swapRouter), amount);
         swapRouter.exactOutput(params);
-        _postSwap(token, params.recipient, preBal);
-    }
 
-    function _exactTokensForTokensSwap(address token, uint256 amount, bytes memory data) internal {
-        (uint256 amountOutMin, address[] memory path, address destination) =
-            abi.decode(data, (uint256, address[], address));
+        uint256 dustIn = tokenSwapIn.balanceOf(address(this)) - preBalIn;
+        amountOut = tokenSwapOut.balanceOf(address(this)) - preBalOut;
 
-        if (path[0] != token) {
-            revert("Test, not token in path");
+        if (dustIn != 0) {
+            tokenSwapIn.safeApprove(address(swapRouter), 0);
+            tokenSwapIn.safeTransfer(destination, dustIn);
         }
-
-        uint256 preBal = _preSwap(token, amount);
-        swapRouter.swapExactTokensForTokens(amount, amountOutMin, path, destination);
-        _postSwap(token, destination, preBal);
     }
 
-    function _tokensForExactTokensSwap(address token, uint256 amount, bytes memory data) internal {
-        (uint256 amountOut, address[] memory path, address destination) =
-            abi.decode(data, (uint256, address[], address));
+    function _exactTokensForTokensSwap(address token, address destination, uint256 amount, bytes memory data)
+        internal
+        returns (address tokenOut, uint256 amountOut)
+    {
+        (address[] memory path) = abi.decode(data, (address[]));
 
-        if (path[0] != token) {
-            revert("Test, not token in path");
+        path[0] == token;
+
+        tokenOut = path[path.length - 1];
+
+        IERC20Upgradeable tokenSwapIn = IERC20Upgradeable(token);
+        IERC20Upgradeable tokenSwapOut = IERC20Upgradeable(tokenOut);
+
+        uint256 preBalIn = tokenSwapIn.balanceOf(address(this)) - amount;
+        uint256 preBalOut = tokenSwapOut.balanceOf(address(this));
+
+        tokenSwapIn.safeApprove(address(swapRouter), amount);
+        swapRouter.swapExactTokensForTokens(amount, 0, path, address(this));
+
+        uint256 dustIn = tokenSwapIn.balanceOf(address(this)) - preBalIn;
+        amountOut = tokenSwapOut.balanceOf(address(this)) - preBalOut;
+
+        if (dustIn != 0) {
+            tokenSwapIn.safeApprove(address(swapRouter), 0);
+            tokenSwapIn.safeTransfer(destination, dustIn);
         }
-
-        uint256 preBal = _preSwap(token, amount);
-        swapRouter.swapExactTokensForTokens(amount, amountOut, path, destination);
-        _postSwap(token, destination, preBal);
     }
 
-    function _preSwap(address _tokenIn, uint256 amount) internal returns (uint256 preBal) {
-        IERC20Upgradeable tokenIn = IERC20Upgradeable(_tokenIn);
+    function _tokensForExactTokensSwap(address token, address destination, uint256 amount, bytes memory data)
+        internal
+        returns (address tokenOut, uint256 amountOut)
+    {
+        address[] memory path;
+        (amountOut, path) = abi.decode(data, (uint256, address[]));
 
-        preBal = tokenIn.balanceOf(address(this)) - amount;
+        path[0] == token;
 
-        tokenIn.safeApprove(address(swapRouter), amount);
-    }
+        tokenOut = path[path.length - 1];
 
-    function _postSwap(address _tokenIn, address destination, uint256 preBal) internal {
-        IERC20Upgradeable tokenIn = IERC20Upgradeable(_tokenIn);
+        IERC20Upgradeable tokenSwapIn = IERC20Upgradeable(token);
+        IERC20Upgradeable tokenSwapOut = IERC20Upgradeable(tokenOut);
 
-        uint256 dust = tokenIn.balanceOf(address(this)) - preBal;
-        if (dust != 0) {
-            tokenIn.safeApprove(address(swapRouter), 0);
-            tokenIn.transfer(destination, dust);
+        uint256 preBalIn = tokenSwapIn.balanceOf(address(this)) - amount;
+        uint256 preBalOut = tokenSwapOut.balanceOf(address(this));
+
+        tokenSwapIn.safeApprove(address(swapRouter), amount);
+        swapRouter.swapTokensForExactTokens(amountOut, amount, path, address(this));
+
+        uint256 dustIn = tokenSwapIn.balanceOf(address(this)) - preBalIn;
+        amountOut = tokenSwapOut.balanceOf(address(this)) - preBalOut;
+
+        if (dustIn != 0) {
+            tokenSwapIn.safeApprove(address(swapRouter), 0);
+            tokenSwapIn.safeTransfer(destination, dustIn);
         }
     }
 
