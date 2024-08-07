@@ -3,38 +3,46 @@ pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
 import "./Environment.sol";
-import "./mocks/MockGateway.sol";
+import {MockGateway} from "./mocks/MockGateway.sol";
+import {MockRouter} from "./mocks/MockRouter.sol";
 
 import {AxelarHandler} from "src/AxelarHandler.sol";
 import {IAxelarExecutable} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarExecutable.sol";
 
 import {IAxelarGateway} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGateway.sol";
 
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IERC20Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
 import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
+import {ISwapRouter02} from "src/interfaces/ISwapRouter02.sol";
+
 contract AxelarHandlerTest is Test {
+    string public constant FORK_CHAIN = "mainnet";
+
     address public constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     address public immutable ALICE = makeAddr("ALICE");
     address public immutable BOB = makeAddr("BOB");
 
+    bool public isForked;
+
     AxelarHandler public handler;
     IAxelarGateway public gateway;
-    Environment public env;
-    address public router;
+    ISwapRouter02 public router;
 
-    function setUp() public {
-        env = new Environment();
+    modifier forked() {
+        isForked = true;
+        Environment env = new Environment();
         env.setEnv(1);
 
         vm.makePersistent(address(env));
+        vm.createSelectFork(vm.rpcUrl(FORK_CHAIN));
 
-        vm.createSelectFork("https://eth.llamarpc.com");
+        gateway = IAxelarGateway(env.gateway());
+        address gasService = env.gasService();
+        router = ISwapRouter02(env.swapRouter());
 
-        gateway = IAxelarGateway(0x4F4495243837681061C4743b74B3eEdf548D56A5);
-        address gasService = 0x2d5d7d31F671F86C782533cc367F14109a082712;
-        router = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
         string memory wethSymbol = "WETH";
 
         AxelarHandler handlerImpl = new AxelarHandler();
@@ -44,15 +52,43 @@ contract AxelarHandlerTest is Test {
         );
         handler = AxelarHandler(payable(address(handlerProxy)));
 
-        handler.setSwapRouter(router);
+        handler.setSwapRouter(address(router));
 
         vm.label(address(handler), "HANDLER");
         vm.label(address(gateway), "GATEWAY");
         vm.label(gasService, "GAS SERVICE");
         vm.label(gateway.tokenAddresses(wethSymbol), "WETH");
+
+        _;
+
+        isForked = false;
     }
 
-    function test_sendNativeToken() public {
+    modifier local() {
+        gateway = IAxelarGateway(address(new MockGateway()));
+        address gasService = makeAddr("GAS SERVICE");
+
+        router = ISwapRouter02(address(new MockRouter()));
+
+        string memory wethSymbol = "WETH";
+
+        AxelarHandler handlerImpl = new AxelarHandler();
+        ERC1967Proxy handlerProxy = new ERC1967Proxy(
+            address(handlerImpl),
+            abi.encodeWithSignature("initialize(address,address,string)", address(gateway), gasService, wethSymbol)
+        );
+        handler = AxelarHandler(payable(address(handlerProxy)));
+
+        handler.setSwapRouter(address(router));
+
+        vm.label(address(handler), "HANDLER");
+        vm.label(address(gateway), "GATEWAY");
+        vm.label(gateway.tokenAddresses(wethSymbol), "WETH");
+
+        _;
+    }
+
+    function test_sendNativeToken() public forked {
         vm.deal(ALICE, 10 ether);
         assertEq(ALICE.balance, 10 ether, "Native balance before sending.");
 
@@ -64,7 +100,7 @@ contract AxelarHandlerTest is Test {
         assertEq(address(handler).balance, 0, "Ether left in the contract.");
     }
 
-    function test_sendNativeToken_NoAmount() public {
+    function test_sendNativeToken_NoAmount() public forked {
         vm.deal(ALICE, 10 ether);
         assertEq(ALICE.balance, 10 ether, "Native balance before sending.");
 
@@ -74,7 +110,7 @@ contract AxelarHandlerTest is Test {
         vm.stopPrank();
     }
 
-    function test_sendERC20Token() public {
+    function test_sendERC20Token() public forked {
         string memory symbol = "WETH";
         IERC20Upgradeable token = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses(symbol));
 
@@ -90,7 +126,7 @@ contract AxelarHandlerTest is Test {
         assertEq(token.balanceOf(address(handler)), 0, "Tokens left in the contract.");
     }
 
-    function test_sendERC20Token_WrongSymbol() public {
+    function test_sendERC20Token_WrongSymbol() public forked {
         string memory symbol = "WBTCx";
         vm.startPrank(ALICE);
         vm.expectRevert(AxelarHandler.TokenNotSupported.selector);
@@ -98,7 +134,7 @@ contract AxelarHandlerTest is Test {
         vm.stopPrank();
     }
 
-    function test_sendERC20Token_NoAllowance() public {
+    function test_sendERC20Token_NoAllowance() public forked {
         string memory symbol = "WBTC";
         IERC20Upgradeable token = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses(symbol));
 
@@ -113,7 +149,7 @@ contract AxelarHandlerTest is Test {
         vm.stopPrank();
     }
 
-    function test_gmpTransferNativeToken() public {
+    function test_gmpTransferNativeToken() public forked {
         vm.deal(ALICE, 100 ether);
         assertEq(ALICE.balance, 100 ether, "Native balance before sending.");
 
@@ -127,7 +163,7 @@ contract AxelarHandlerTest is Test {
         assertEq(address(handler).balance, 0, "Ether left in the contract.");
     }
 
-    function test_gmpTransferNativeToken_ZeroGas() public {
+    function test_gmpTransferNativeToken_ZeroGas() public forked {
         vm.deal(ALICE, 100 ether);
         assertEq(ALICE.balance, 100 ether, "Native balance before sending.");
 
@@ -139,7 +175,7 @@ contract AxelarHandlerTest is Test {
         vm.stopPrank();
     }
 
-    function test_gmpTransferNativeToken_ZeroAmount() public {
+    function test_gmpTransferNativeToken_ZeroAmount() public forked {
         vm.deal(ALICE, 100 ether);
         assertEq(ALICE.balance, 100 ether, "Native balance before sending.");
 
@@ -151,7 +187,7 @@ contract AxelarHandlerTest is Test {
         vm.stopPrank();
     }
 
-    function test_gmpTransferNativeToken_AmountMismatch() public {
+    function test_gmpTransferNativeToken_AmountMismatch() public forked {
         vm.deal(ALICE, 100 ether);
         assertEq(ALICE.balance, 100 ether, "Native balance before sending.");
 
@@ -163,7 +199,7 @@ contract AxelarHandlerTest is Test {
         vm.stopPrank();
     }
 
-    function test_gmpTransferERC20Token() public {
+    function test_gmpTransferERC20Token() public forked {
         vm.deal(ALICE, 25 ether);
         assertEq(ALICE.balance, 25 ether, "Native balance before sending.");
 
@@ -186,7 +222,7 @@ contract AxelarHandlerTest is Test {
         assertEq(token.balanceOf(address(handler)), 0, "Tokens left in the contract.");
     }
 
-    function test_gmpTransferERC20Token_GasMismatch() public {
+    function test_gmpTransferERC20Token_GasMismatch() public forked {
         vm.deal(ALICE, 0.5 ether);
         assertEq(ALICE.balance, 0.5 ether, "Native balance before sending.");
 
@@ -205,7 +241,7 @@ contract AxelarHandlerTest is Test {
         vm.stopPrank();
     }
 
-    function test_gmpTransferERC20Token_ZeroGas() public {
+    function test_gmpTransferERC20Token_ZeroGas() public forked {
         vm.deal(ALICE, 0.5 ether);
         assertEq(ALICE.balance, 0.5 ether, "Native balance before sending.");
 
@@ -224,7 +260,7 @@ contract AxelarHandlerTest is Test {
         vm.stopPrank();
     }
 
-    function test_gmpTransferERC20TokenGasTokenPayment() public {
+    function test_gmpTransferERC20TokenGasTokenPayment() public forked {
         string memory symbol = "WBTC";
         IERC20Upgradeable token = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses(symbol));
         vm.label(address(token), "WBTC");
@@ -243,7 +279,7 @@ contract AxelarHandlerTest is Test {
         assertEq(token.balanceOf(address(handler)), 0, "Tokens left in the contract.");
     }
 
-    function test_executeWithToken_nonunwrap_nonWETH() public {
+    function test_executeWithToken_nonunwrap_nonWETH() public forked {
         string memory symbol = "WBTC";
         IERC20Upgradeable token = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses(symbol));
         vm.label(address(token), "WBTC");
@@ -270,7 +306,7 @@ contract AxelarHandlerTest is Test {
         assertEq(token.balanceOf(ALICE), 100 ether, "Alice balance after");
     }
 
-    function test_executeWithToken_unwrap_nonWETH() public {
+    function test_executeWithToken_unwrap_nonWETH() public forked {
         string memory symbol = "WBTC";
         IERC20Upgradeable token = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses(symbol));
         vm.label(address(token), "WBTC");
@@ -297,7 +333,7 @@ contract AxelarHandlerTest is Test {
         assertEq(token.balanceOf(ALICE), 100 ether, "Alice balance after");
     }
 
-    function test_executeWithToken_unwrap_WETH() public {
+    function test_executeWithToken_unwrap_WETH() public forked {
         string memory symbol = "WETH";
         IERC20Upgradeable token = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses(symbol));
         vm.label(address(token), "WETH");
@@ -325,7 +361,75 @@ contract AxelarHandlerTest is Test {
         assertEq(ALICE.balance, 100 ether, "Alice native balance after");
     }
 
-    function test_executeWithToken_exactInputSingleSwap() public {
+    function test_executeWithToken_exactInputSingleSwap_Fork() public forked {
+        string memory symbol = "WETH";
+        address tokenIn = IAxelarGateway(gateway).tokenAddresses(symbol);
+        vm.label(address(tokenIn), symbol);
+
+        address tokenOut = USDC;
+        vm.label(address(tokenOut), "USDC");
+
+        uint256 amountIn = 1 ether; // 1 WETH
+        uint256 amountOutMin = 1_000 * 1e6; // 1,000 USDC
+        address destination = ALICE;
+        bool unwrap = false;
+
+        _execute_exactInputSingleSwap(symbol, tokenIn, tokenOut, amountIn, amountOutMin, destination, unwrap);
+    }
+
+    function _execute_exactInputSingleSwap(
+        string memory symbol,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address destination,
+        bool unwrap
+    ) internal {
+        _mockGateway(symbol, tokenIn, amountIn);
+
+        IERC20 inputToken = IERC20(tokenIn);
+        IERC20 outputToken = IERC20(tokenOut);
+
+        assertEq(inputToken.balanceOf(address(handler)), amountIn, "Handler input token balance before");
+        assertEq(outputToken.balanceOf(address(handler)), 0, "Handler output token balance before");
+
+        assertEq(inputToken.balanceOf(destination), 0, "Destination input token balance before");
+        assertEq(outputToken.balanceOf(destination), 0, "Destination output token balance before");
+
+        bytes[] memory swaps = new bytes[](1);
+        swaps[0] = abi.encode(uint8(0), abi.encode(tokenOut, uint24(3000), uint160(0)));
+
+        bytes memory payload = abi.encode(uint8(2), abi.encode(destination, amountOutMin, unwrap, swaps));
+
+        handler.executeWithToken(
+            keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, amountIn
+        );
+
+        assertEq(inputToken.balanceOf(destination), 0, "Destination input token balance after");
+        if (unwrap) {
+            assertGt(destination.balance, amountOutMin, "Destination output native balance after");
+            assertEq(address(handler).balance, 0, "Handler native token balance after");
+        } else {
+            assertGt(IERC20(tokenOut).balanceOf(destination), amountOutMin, "Destination output token balance after");
+        }
+        assertEq(inputToken.balanceOf(address(handler)), 0, "Handler input token balance after");
+        assertEq(outputToken.balanceOf(address(handler)), 0, "Handler output token balance after");
+        assertEq(inputToken.allowance(address(handler), address(router)), 0, "Router allowance after swap");
+    }
+
+    function _mockGateway(string memory symbol, address tokenIn, uint256 amountIn) internal {
+        deal(tokenIn, address(handler), amountIn);
+
+        if (isForked) {
+            deployCodeTo("MockGateway.sol", address(gateway));
+        }
+
+        MockGateway mockGateway = MockGateway(address(gateway));
+        mockGateway.saveTokenAddress(symbol, tokenIn);
+    }
+
+    function test_executeWithToken_exactInputSwap() public forked {
         uint256 inputAmount = 1 ether;
         uint256 amountOutMinimum = 1000 * 1e6; // 1000 USDC
 
@@ -349,8 +453,9 @@ contract AxelarHandlerTest is Test {
         MockGateway mockGateway = MockGateway(address(gateway));
         mockGateway.saveTokenAddress(symbol, address(inputToken));
 
-        bytes memory payload =
-            abi.encode(uint8(2), abi.encode(address(outputToken), uint24(3000), ALICE, amountOutMinimum, uint160(0)));
+        bytes[] memory swaps = new bytes[](1);
+        swaps[0] = abi.encode(uint8(1), abi.encodePacked(address(inputToken), uint24(500), address(outputToken)));
+        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, amountOutMinimum, false, swaps));
 
         handler.executeWithToken(
             keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, inputAmount
@@ -363,16 +468,16 @@ contract AxelarHandlerTest is Test {
         assertEq(inputToken.allowance(address(handler), address(router)), 0, "Router allowance after swap");
     }
 
-    function test_executeWithToken_exactInputSwap() public {
-        uint256 inputAmount = 1 ether;
-        uint256 amountOutMinimum = 1000 * 1e6; // 1000 USDC
+    function test_executeWithToken_exactTokensForTokensSwap() public forked {
+        uint256 inputAmount = 5 ether;
+        uint256 minOutput = 10_000 * 1e6;
 
         string memory symbol = "WETH";
         IERC20Upgradeable inputToken = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses(symbol));
         vm.label(address(inputToken), "WETH");
 
         IERC20Upgradeable outputToken = IERC20Upgradeable(USDC);
-        vm.label(address(outputToken), "USDC");
+        vm.label(address(inputToken), "USDC");
 
         deal(address(inputToken), address(this), inputAmount);
         inputToken.transfer(address(handler), inputAmount);
@@ -387,21 +492,26 @@ contract AxelarHandlerTest is Test {
         MockGateway mockGateway = MockGateway(address(gateway));
         mockGateway.saveTokenAddress(symbol, address(inputToken));
 
-        bytes memory payload =
-            abi.encode(uint8(3), abi.encode(address(outputToken), uint24(3000), ALICE, amountOutMinimum, uint160(0)));
+        address[] memory path = new address[](2);
+        path[0] = address(inputToken);
+        path[1] = address(outputToken);
+
+        bytes[] memory swaps = new bytes[](1);
+        swaps[0] = abi.encode(uint8(2), abi.encode(path));
+        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, minOutput, false, swaps));
 
         handler.executeWithToken(
             keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, inputAmount
         );
 
-        assertEq(inputToken.balanceOf(ALICE), 0, "Alice input token balance after");
-        assertGt(outputToken.balanceOf(ALICE), amountOutMinimum, "Alice output token balance after");
-        assertEq(inputToken.balanceOf(address(handler)), 0, "Handler input token balance after");
-        assertEq(outputToken.balanceOf(address(handler)), 0, "Handler output token balance after");
-        assertEq(inputToken.allowance(address(handler), address(router)), 0, "Router allowance after swap");
+        assertEq(inputToken.balanceOf(ALICE), 0, "User got refunded input");
+        assertGt(outputToken.balanceOf(ALICE), minOutput, "User balance didn't increase");
+        assertEq(inputToken.balanceOf(address(handler)), 0, "Dust leftover in the contract.");
+        assertEq(outputToken.balanceOf(address(handler)), 0, "Funds leftover in contract");
+        assertEq(inputToken.allowance(address(handler), address(router)), 0, "Router Allowance Remaining After Payment");
     }
 
-    function test_executeWithToken_exactOutputSingleSwap() public {
+    function test_executeWithToken_exactOutputSingleSwap() public forked {
         uint256 inputAmount = 1 ether;
         uint256 amountOut = 1000 * 1e6; // 1000 USDC
 
@@ -425,8 +535,9 @@ contract AxelarHandlerTest is Test {
         MockGateway mockGateway = MockGateway(address(gateway));
         mockGateway.saveTokenAddress(symbol, address(inputToken));
 
-        bytes memory payload =
-            abi.encode(uint8(4), abi.encode(address(outputToken), uint24(3000), ALICE, amountOut, uint160(0)));
+        bytes[] memory swaps = new bytes[](1);
+        swaps[0] = abi.encode(uint8(3), abi.encode(address(outputToken), uint256(amountOut), uint24(3000), uint160(0)));
+        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, amountOut, false, swaps));
 
         handler.executeWithToken(
             keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, inputAmount
@@ -439,48 +550,90 @@ contract AxelarHandlerTest is Test {
         assertEq(inputToken.allowance(address(handler), address(router)), 0, "Router allowance after swap");
     }
 
-    // function test_executeWithToken_v2_swap() public {
-    //     uint256 inputAmount = 5 ether;
-    //     uint256 minOutput = 10_000 * 1e6;
+    function test_executeWithToken_exactOutputSwap() public forked {
+        uint256 inputAmount = 1 ether;
+        uint256 amountOut = 1000 * 1e6; // 1000 USDC
 
-    //     string memory symbol = "WETH";
-    //     IERC20Upgradeable inputToken = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses(symbol));
-    //     vm.label(address(inputToken), "WETH");
+        string memory symbol = "WETH";
+        IERC20Upgradeable inputToken = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses(symbol));
+        vm.label(address(inputToken), "WETH");
 
-    //     IERC20Upgradeable outputToken = IERC20Upgradeable(USDC);
-    //     vm.label(address(inputToken), "USDC");
+        IERC20Upgradeable outputToken = IERC20Upgradeable(USDC);
+        vm.label(address(outputToken), "USDC");
 
-    //     deal(address(inputToken), address(this), inputAmount);
-    //     inputToken.transfer(address(handler), inputAmount);
+        deal(address(inputToken), address(this), inputAmount);
+        inputToken.transfer(address(handler), inputAmount);
 
-    //     assertEq(inputToken.balanceOf(address(handler)), inputAmount, "Handler input token balance before");
-    //     assertEq(outputToken.balanceOf(address(handler)), 0, "Handler output token balance before");
+        assertEq(inputToken.balanceOf(address(handler)), inputAmount, "Handler input token balance before");
+        assertEq(outputToken.balanceOf(address(handler)), 0, "Handler output token balance before");
 
-    //     assertEq(inputToken.balanceOf(ALICE), 0, "Alice input token balance before");
-    //     assertEq(outputToken.balanceOf(ALICE), 0, "Alice output token balance before");
+        assertEq(inputToken.balanceOf(ALICE), 0, "Alice input token balance before");
+        assertEq(outputToken.balanceOf(ALICE), 0, "Alice output token balance before");
 
-    //     deployCodeTo("MockGateway.sol", address(gateway));
-    //     MockGateway mockGateway = MockGateway(address(gateway));
-    //     mockGateway.saveTokenAddress(symbol, address(inputToken));
+        deployCodeTo("MockGateway.sol", address(gateway));
+        MockGateway mockGateway = MockGateway(address(gateway));
+        mockGateway.saveTokenAddress(symbol, address(inputToken));
 
-    //     address[] memory path = new address[](2);
-    //     path[0] = address(inputToken);
-    //     path[1] = address(outputToken);
+        bytes[] memory swaps = new bytes[](1);
+        swaps[0] = abi.encode(
+            uint8(4),
+            abi.encode(uint256(amountOut), abi.encodePacked(address(outputToken), uint24(500), address(inputToken)))
+        );
+        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, amountOut, false, swaps));
 
-    //     bytes memory swapCalldata =
-    //         abi.encodeWithSelector(bytes4(0x472b43f3), inputAmount, minOutput, path, address(handler));
-    //     bytes memory payload = abi.encode(uint8(1), abi.encode(ALICE, address(outputToken), swapCalldata));
+        handler.executeWithToken(
+            keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, inputAmount
+        );
 
-    //     handler.executeWithToken(
-    //         keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, inputAmount
-    //     );
+        assertGt(inputToken.balanceOf(ALICE), 0, "Alice input token balance after");
+        assertEq(outputToken.balanceOf(ALICE), amountOut, "Alice output token balance after");
+        assertEq(inputToken.balanceOf(address(handler)), 0, "Handler input token balance after");
+        assertEq(outputToken.balanceOf(address(handler)), 0, "Handler output token balance after");
+        assertEq(inputToken.allowance(address(handler), address(router)), 0, "Router allowance after swap");
+    }
 
-    //     assertEq(inputToken.balanceOf(ALICE), 0, "User got refunded input");
-    //     assertGt(outputToken.balanceOf(ALICE), minOutput, "User balance didn't increase");
-    //     assertEq(inputToken.balanceOf(address(handler)), 0, "Dust leftover in the contract.");
-    //     assertEq(outputToken.balanceOf(address(handler)), 0, "Funds leftover in contract");
-    //     assertEq(inputToken.allowance(address(handler), address(router)), 0, "Router Allowance Remaining After Payment");
-    // }
+    function test_executeWithToken_tokensForExactTokensSwap() public forked {
+        uint256 inputAmount = 5 ether;
+        uint256 amountOut = 10_000 * 1e6;
+
+        string memory symbol = "WETH";
+        IERC20Upgradeable inputToken = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses(symbol));
+        vm.label(address(inputToken), "WETH");
+
+        IERC20Upgradeable outputToken = IERC20Upgradeable(USDC);
+        vm.label(address(inputToken), "USDC");
+
+        deal(address(inputToken), address(this), inputAmount);
+        inputToken.transfer(address(handler), inputAmount);
+
+        assertEq(inputToken.balanceOf(address(handler)), inputAmount, "Handler input token balance before");
+        assertEq(outputToken.balanceOf(address(handler)), 0, "Handler output token balance before");
+
+        assertEq(inputToken.balanceOf(ALICE), 0, "Alice input token balance before");
+        assertEq(outputToken.balanceOf(ALICE), 0, "Alice output token balance before");
+
+        deployCodeTo("MockGateway.sol", address(gateway));
+        MockGateway mockGateway = MockGateway(address(gateway));
+        mockGateway.saveTokenAddress(symbol, address(inputToken));
+
+        address[] memory path = new address[](2);
+        path[0] = address(inputToken);
+        path[1] = address(outputToken);
+
+        bytes[] memory swaps = new bytes[](1);
+        swaps[0] = abi.encode(uint8(5), abi.encode(amountOut, path));
+        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, amountOut, false, swaps));
+
+        handler.executeWithToken(
+            keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, inputAmount
+        );
+
+        assertGt(inputToken.balanceOf(ALICE), 0, "User got refunded input");
+        assertEq(outputToken.balanceOf(ALICE), amountOut, "User balance didn't increase");
+        assertEq(inputToken.balanceOf(address(handler)), 0, "Dust leftover in the contract.");
+        assertEq(outputToken.balanceOf(address(handler)), 0, "Funds leftover in contract");
+        assertEq(inputToken.allowance(address(handler), address(router)), 0, "Router Allowance Remaining After Payment");
+    }
 
     // function test_executeWithToken_swap_refundDust() public {
     //     uint256 inputAmount = 4.95 ether;
@@ -530,7 +683,7 @@ contract AxelarHandlerTest is Test {
         address inputToken,
         uint256 inputAmount,
         bytes memory swapCalldata
-    ) public {
+    ) public forked {
         uint256 amount = 2 ether;
         uint256 gasAmount = 0.5 ether;
         IERC20Upgradeable token = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses("WBTC"));
@@ -571,7 +724,7 @@ contract AxelarHandlerTest is Test {
         address inputToken,
         uint256 inputAmount,
         bytes memory swapCalldata
-    ) public {
+    ) public forked {
         uint256 amount = 2 ether;
         uint256 gasAmount = 0.5 ether;
         IERC20Upgradeable inputToken = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses("WETH"));

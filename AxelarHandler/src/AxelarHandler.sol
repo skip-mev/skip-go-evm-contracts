@@ -476,7 +476,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         returns (address tokenOut, uint256 amountOut)
     {
         ISwapRouter02.ExactInputParams memory params;
-        (params.path) = abi.decode(data, (bytes));
+        params.path = data;
 
         params.recipient = address(this);
         params.amountIn = amount;
@@ -551,14 +551,14 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         params.amountOut = amountOut;
         params.amountInMaximum = amount;
 
-        (address tokenA,,) = params.path.decodeFirstPool();
+        (, address tokenB,) = params.path.decodeLastPool();
 
-        if (tokenA != token) {
+        if (tokenB != token) {
             bytes memory tokenReplace = BytesLib.toBytes(token);
-            params.path = BytesLib.concat(tokenReplace, BytesLib.slice(params.path, 20, params.path.length - 20));
+            params.path = BytesLib.concat(BytesLib.slice(params.path, 0, params.path.length - 20), tokenReplace);
         }
 
-        (, tokenOut,) = params.path.decodeLastPool();
+        (tokenOut,,) = params.path.decodeFirstPool();
 
         IERC20Upgradeable tokenSwapIn = IERC20Upgradeable(token);
         IERC20Upgradeable tokenSwapOut = IERC20Upgradeable(tokenOut);
