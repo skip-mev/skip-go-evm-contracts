@@ -8,9 +8,12 @@ import {ICCTPRelayer} from "./interfaces/ICCTPRelayer.sol";
 import {ITokenMessenger} from "./interfaces/ITokenMessenger.sol";
 import {IMessageTransmitter} from "./interfaces/IMessageTransmitter.sol";
 
+import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2StepUpgradeable {
+    using SafeERC20 for IERC20;
+
     IERC20 public usdc;
     ITokenMessenger public messenger;
     IMessageTransmitter public transmitter;
@@ -50,8 +53,8 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
 
     function makePaymentForRelay(uint64 nonce, uint256 paymentAmount) external {
         if (paymentAmount == 0) revert PaymentCannotBeZero();
-        // Transfer the funds from the user into the contract and fail if the transfer reverts.
-        if (!usdc.transferFrom(msg.sender, address(this), paymentAmount)) revert TransferFailed();
+        // Transfer the funds from the user into the contract.
+        usdc.safeTransferFrom(msg.sender, address(this), paymentAmount);
 
         // If the transfer succeeds, emit the payment event.
         emit PaymentForRelay(nonce, paymentAmount);
@@ -67,7 +70,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         if (transferAmount == 0) revert PaymentCannotBeZero();
         if (feeAmount == 0) revert PaymentCannotBeZero();
         // In order to save gas do the transfer only once, of both transfer amount and fee amount.
-        if (!usdc.transferFrom(msg.sender, address(this), transferAmount + feeAmount)) revert TransferFailed();
+        usdc.safeTransferFrom(msg.sender, address(this), transferAmount + feeAmount);
 
         // Only give allowance of the transfer amount, as we want the fee amount to stay in the contract.
         usdc.approve(address(messenger), transferAmount);
@@ -118,8 +121,6 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
 
         uint256 outputAmount;
         if (inputToken == address(0)) {
-            IERC20 token = IERC20(inputToken);
-
             // Native Token
             if (inputAmount != msg.value) revert InsufficientNativeToken();
 
@@ -153,7 +154,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             uint256 preOutputBalance = usdc.balanceOf(address(this));
 
             // Transfer input ERC20 tokens to the contract
-            token.transferFrom(msg.sender, address(this), inputAmount);
+            token.safeTransferFrom(msg.sender, address(this), inputAmount);
 
             // Approve the swap router to spend the input tokens
             token.approve(swapRouter, inputAmount);
@@ -173,7 +174,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             // Refund the remaining amount
             uint256 dust = postInputBalance - preInputBalance;
             if (dust != 0) {
-                token.transfer(msg.sender, dust);
+                token.safeTransfer(msg.sender, dust);
 
                 // Revoke Approval
                 token.approve(swapRouter, 0);
@@ -212,8 +213,6 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             // Native Token
             if (inputAmount != msg.value) revert InsufficientNativeToken();
 
-            IERC20 token = IERC20(inputToken);
-
             // Get the contract's balances previous to the swap
             uint256 preInputBalance = address(this).balance - inputAmount;
             uint256 preOutputBalance = usdc.balanceOf(address(this));
@@ -244,7 +243,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             uint256 preOutputBalance = usdc.balanceOf(address(this));
 
             // Transfer input ERC20 tokens to the contract
-            token.transferFrom(msg.sender, address(this), inputAmount);
+            token.safeTransferFrom(msg.sender, address(this), inputAmount);
 
             // Approve the swap router to spend the input tokens
             token.approve(swapRouter, inputAmount);
@@ -264,7 +263,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             // Refund the remaining amount
             uint256 dust = postInputBalance - preInputBalance;
             if (dust != 0) {
-                token.transfer(msg.sender, dust);
+                token.safeTransfer(msg.sender, dust);
 
                 // Revoke Approval
                 token.approve(swapRouter, 0);
@@ -311,8 +310,8 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         // Check that the contract has enough balance.
         if (usdc.balanceOf(address(this)) < amount) revert MissingBalance();
 
-        // Check that the transfer succeeds.
-        if (!usdc.transfer(receiver, amount)) revert TransferFailed();
+        // Transfer the amount to the receiver.
+        usdc.safeTransfer(receiver, amount);
     }
 
     fallback() external payable {}
