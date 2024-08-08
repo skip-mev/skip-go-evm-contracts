@@ -6,9 +6,8 @@ import {IWETH} from "./interfaces/IWETH.sol";
 import {IAxelarGasService} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGasService.sol";
 import {AxelarExecutableUpgradeable} from "./AxelarExecutableUpgradeable.sol";
 
-import {IERC20Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
-import {SafeERC20Upgradeable} from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable2StepUpgradeable} from
     "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -21,7 +20,7 @@ import {BytesLib, Path} from "./libraries/Path.sol";
 /// @notice allows to send and receive tokens to/from other chains through axelar gateway while wrapping the native tokens.
 /// @author Skip Protocol.
 contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, UUPSUpgradeable {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20 for IERC20;
     using Path for bytes;
 
     error EmptySymbol();
@@ -128,7 +127,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         if (amount == 0) revert ZeroAmount();
         if (bytes(symbol).length == 0) revert EmptySymbol();
 
-        IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(symbol));
+        IERC20 token = IERC20(_getTokenAddress(symbol));
 
         token.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -190,7 +189,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         if (bytes(symbol).length == 0) revert EmptySymbol();
 
         // Get the token address.
-        IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(symbol));
+        IERC20 token = IERC20(_getTokenAddress(symbol));
 
         // Transfer the amount from the msg.sender.
         token.safeTransferFrom(msg.sender, address(this), amount);
@@ -228,7 +227,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         if (bytes(symbol).length == 0) revert EmptySymbol();
 
         // Get the address of the output token based on the symbol provided
-        IERC20Upgradeable outputToken = IERC20Upgradeable(_getTokenAddress(symbol));
+        IERC20 outputToken = IERC20(_getTokenAddress(symbol));
 
         uint256 outputAmount;
         if (inputToken == address(0)) {
@@ -262,7 +261,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             if (gasPaymentAmount != msg.value) revert();
 
             // Transfer input ERC20 tokens to the contract
-            IERC20Upgradeable token = IERC20Upgradeable(inputToken);
+            IERC20 token = IERC20(inputToken);
             token.safeTransferFrom(msg.sender, address(this), amount);
 
             // Approve the swap router to spend the input tokens
@@ -286,7 +285,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
             // Refund the remaining amount
             if (dust != 0) {
-                token.transfer(msg.sender, dust);
+                token.safeTransfer(msg.sender, dust);
 
                 // Revoke approval
                 token.safeApprove(address(swapRouter), 0);
@@ -323,7 +322,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         if (bytes(symbol).length == 0) revert EmptySymbol();
 
         // Get the token address.
-        IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(symbol));
+        IERC20 token = IERC20(_getTokenAddress(symbol));
 
         // Transfer the amount and gas payment amount from the msg.sender.
         token.safeTransferFrom(msg.sender, address(this), amount + gasPaymentAmount);
@@ -354,8 +353,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         if (token == address(0)) revert TokenNotSupported();
 
         if (!approved[token]) {
-            IERC20Upgradeable(token).safeApprove(address(gateway), type(uint256).max);
-            IERC20Upgradeable(token).safeApprove(address(gasService), type(uint256).max);
+            IERC20(token).safeApprove(address(gateway), type(uint256).max);
+            IERC20(token).safeApprove(address(gasService), type(uint256).max);
             approved[token] = true;
         }
     }
@@ -375,7 +374,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         uint256 amount
     ) internal override {
         address token = _getTokenAddress(tokenSymbol);
-        IERC20Upgradeable tokenIn = IERC20Upgradeable(token);
+        IERC20 tokenIn = IERC20(token);
 
         (Commands command, bytes memory data) = abi.decode(payload, (Commands, bytes));
         if (command == Commands.SendToken) {
@@ -425,7 +424,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     }
 
     function _sendToken(address token, uint256 amount, address destination) internal {
-        IERC20Upgradeable(token).safeTransfer(destination, amount);
+        IERC20(token).safeTransfer(destination, amount);
     }
 
     function _sendNative(address token, uint256 amount, address destination) internal {
@@ -453,8 +452,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         params.amountIn = amount;
         params.recipient = address(this);
 
-        IERC20Upgradeable tokenSwapIn = IERC20Upgradeable(token);
-        IERC20Upgradeable tokenSwapOut = IERC20Upgradeable(tokenOut);
+        IERC20 tokenSwapIn = IERC20(token);
+        IERC20 tokenSwapOut = IERC20(tokenOut);
 
         uint256 preBalIn = tokenSwapIn.balanceOf(address(this)) - amount;
         uint256 preBalOut = tokenSwapOut.balanceOf(address(this));
@@ -490,8 +489,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
         (, tokenOut,) = params.path.decodeLastPool();
 
-        IERC20Upgradeable tokenSwapIn = IERC20Upgradeable(token);
-        IERC20Upgradeable tokenSwapOut = IERC20Upgradeable(tokenOut);
+        IERC20 tokenSwapIn = IERC20(token);
+        IERC20 tokenSwapOut = IERC20(tokenOut);
 
         uint256 preBalIn = tokenSwapIn.balanceOf(address(this)) - amount;
         uint256 preBalOut = tokenSwapOut.balanceOf(address(this));
@@ -522,8 +521,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         params.amountOut = amountOut;
         params.amountInMaximum = amount;
 
-        IERC20Upgradeable tokenSwapIn = IERC20Upgradeable(token);
-        IERC20Upgradeable tokenSwapOut = IERC20Upgradeable(tokenOut);
+        IERC20 tokenSwapIn = IERC20(token);
+        IERC20 tokenSwapOut = IERC20(tokenOut);
 
         uint256 preBalIn = tokenSwapIn.balanceOf(address(this)) - amount;
         uint256 preBalOut = tokenSwapOut.balanceOf(address(this));
@@ -560,8 +559,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
         (tokenOut,,) = params.path.decodeFirstPool();
 
-        IERC20Upgradeable tokenSwapIn = IERC20Upgradeable(token);
-        IERC20Upgradeable tokenSwapOut = IERC20Upgradeable(tokenOut);
+        IERC20 tokenSwapIn = IERC20(token);
+        IERC20 tokenSwapOut = IERC20(tokenOut);
 
         uint256 preBalIn = tokenSwapIn.balanceOf(address(this)) - amount;
         uint256 preBalOut = tokenSwapOut.balanceOf(address(this));
@@ -588,8 +587,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
         tokenOut = path[path.length - 1];
 
-        IERC20Upgradeable tokenSwapIn = IERC20Upgradeable(token);
-        IERC20Upgradeable tokenSwapOut = IERC20Upgradeable(tokenOut);
+        IERC20 tokenSwapIn = IERC20(token);
+        IERC20 tokenSwapOut = IERC20(tokenOut);
 
         uint256 preBalIn = tokenSwapIn.balanceOf(address(this)) - amount;
         uint256 preBalOut = tokenSwapOut.balanceOf(address(this));
@@ -617,8 +616,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
         tokenOut = path[path.length - 1];
 
-        IERC20Upgradeable tokenSwapIn = IERC20Upgradeable(token);
-        IERC20Upgradeable tokenSwapOut = IERC20Upgradeable(tokenOut);
+        IERC20 tokenSwapIn = IERC20(token);
+        IERC20 tokenSwapOut = IERC20(tokenOut);
 
         uint256 preBalIn = tokenSwapIn.balanceOf(address(this)) - amount;
         uint256 preBalOut = tokenSwapOut.balanceOf(address(this));
