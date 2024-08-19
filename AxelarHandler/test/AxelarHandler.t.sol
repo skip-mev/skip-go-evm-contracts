@@ -397,10 +397,8 @@ contract AxelarHandlerTest is Test {
         assertEq(inputToken.balanceOf(destination), 0, "Destination input token balance before");
         assertEq(outputToken.balanceOf(destination), 0, "Destination output token balance before");
 
-        bytes[] memory swaps = new bytes[](1);
-        swaps[0] = abi.encode(uint8(0), abi.encode(tokenOut, uint24(3000), uint160(0)));
-
-        bytes memory payload = abi.encode(uint8(2), abi.encode(destination, amountOutMin, unwrap, swaps));
+        bytes memory swapPayload = abi.encode(uint8(0), tokenOut, amountOutMin, abi.encode(uint24(3000), uint160(0)));
+        bytes memory payload = abi.encode(uint8(2), abi.encode(destination, unwrap, swapPayload));
 
         handler.executeWithToken(
             keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, amountIn
@@ -453,9 +451,9 @@ contract AxelarHandlerTest is Test {
         MockGateway mockGateway = MockGateway(address(gateway));
         mockGateway.saveTokenAddress(symbol, address(inputToken));
 
-        bytes[] memory swaps = new bytes[](1);
-        swaps[0] = abi.encode(uint8(1), abi.encodePacked(address(inputToken), uint24(500), address(outputToken)));
-        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, amountOutMinimum, false, swaps));
+        bytes memory path = abi.encodePacked(address(inputToken), uint24(500), address(outputToken));
+        bytes memory swapPayload = abi.encode(uint8(1), address(outputToken), amountOutMinimum, path);
+        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, false, swapPayload));
 
         handler.executeWithToken(
             keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, inputAmount
@@ -496,9 +494,8 @@ contract AxelarHandlerTest is Test {
         path[0] = address(inputToken);
         path[1] = address(outputToken);
 
-        bytes[] memory swaps = new bytes[](1);
-        swaps[0] = abi.encode(uint8(2), abi.encode(path));
-        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, minOutput, false, swaps));
+        bytes memory swapPayload = abi.encode(uint8(2), address(outputToken), minOutput, abi.encode(path));
+        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, false, swapPayload));
 
         handler.executeWithToken(
             keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, inputAmount
@@ -535,9 +532,9 @@ contract AxelarHandlerTest is Test {
         MockGateway mockGateway = MockGateway(address(gateway));
         mockGateway.saveTokenAddress(symbol, address(inputToken));
 
-        bytes[] memory swaps = new bytes[](1);
-        swaps[0] = abi.encode(uint8(3), abi.encode(address(outputToken), uint256(amountOut), uint24(3000), uint160(0)));
-        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, amountOut, false, swaps));
+        bytes memory swapPayload =
+            abi.encode(uint8(3), address(outputToken), amountOut, abi.encode(uint24(3000), uint160(0)));
+        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, false, swapPayload));
 
         handler.executeWithToken(
             keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, inputAmount
@@ -574,12 +571,9 @@ contract AxelarHandlerTest is Test {
         MockGateway mockGateway = MockGateway(address(gateway));
         mockGateway.saveTokenAddress(symbol, address(inputToken));
 
-        bytes[] memory swaps = new bytes[](1);
-        swaps[0] = abi.encode(
-            uint8(4),
-            abi.encode(uint256(amountOut), abi.encodePacked(address(outputToken), uint24(500), address(inputToken)))
-        );
-        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, amountOut, false, swaps));
+        bytes memory path = abi.encodePacked(address(outputToken), uint24(500), address(inputToken));
+        bytes memory swapPayload = abi.encode(uint8(4), address(outputToken), amountOut, path);
+        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, false, swapPayload));
 
         handler.executeWithToken(
             keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, inputAmount
@@ -620,9 +614,8 @@ contract AxelarHandlerTest is Test {
         path[0] = address(inputToken);
         path[1] = address(outputToken);
 
-        bytes[] memory swaps = new bytes[](1);
-        swaps[0] = abi.encode(uint8(5), abi.encode(amountOut, path));
-        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, amountOut, false, swaps));
+        bytes memory swapPayload = abi.encode(uint8(5), address(outputToken), amountOut, abi.encode(path));
+        bytes memory payload = abi.encode(uint8(2), abi.encode(ALICE, false, swapPayload));
 
         handler.executeWithToken(
             keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, inputAmount
@@ -633,6 +626,26 @@ contract AxelarHandlerTest is Test {
         assertEq(inputToken.balanceOf(address(handler)), 0, "Dust leftover in the contract.");
         assertEq(outputToken.balanceOf(address(handler)), 0, "Funds leftover in contract");
         assertEq(inputToken.allowance(address(handler), address(router)), 0, "Router Allowance Remaining After Payment");
+    }
+
+    function test_executeWithToken_custom() public forked {
+        uint256 inputAmount = 5 ether;
+        string memory symbol = "WETH";
+        IERC20Upgradeable inputToken = IERC20Upgradeable(IAxelarGateway(gateway).tokenAddresses(symbol));
+
+        deployCodeTo("MockGateway.sol", address(gateway));
+        MockGateway mockGateway = MockGateway(address(gateway));
+        mockGateway.saveTokenAddress(symbol, address(inputToken));
+
+        deal(address(inputToken), address(this), inputAmount);
+        inputToken.transfer(address(handler), inputAmount);
+
+        bytes memory payload =
+            hex"000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000160000000000000000000000000ef211076b8d8b46797e09c9a374fb4cdc1df09160000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000004000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000000000000000000000000000000000003b9aca000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000002ba0b86991c6218b36c1d19d4a2e9eb0ce3606eb480001f4c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000000000000000000000";
+
+        handler.executeWithToken(
+            keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, symbol, inputAmount
+        );
     }
 
     // function test_executeWithToken_swap_refundDust() public {

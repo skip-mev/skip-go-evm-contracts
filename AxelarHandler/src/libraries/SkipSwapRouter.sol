@@ -4,6 +4,8 @@ import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/
 import {ISwapRouter02} from "../interfaces/ISwapRouter02.sol";
 import {BytesLib, Path} from "./Path.sol";
 
+import {console} from "forge-std/Test.sol";
+
 pragma solidity >= 0.8.18;
 
 library SkipSwapRouter {
@@ -40,7 +42,7 @@ library SkipSwapRouter {
 
     function swap(ISwapRouter02 router, address destination, IERC20 inputToken, uint256 amountIn, bytes memory payload)
         public
-        returns (IERC20 outputToken, uint256 amountOut)
+        returns (IERC20 outputToken, uint256 outputAmount)
     {
         (SwapCommands command, address tokenOut, uint256 amountOut, bytes memory swapData) =
             abi.decode(payload, (SwapCommands, address, uint256, bytes));
@@ -65,16 +67,17 @@ library SkipSwapRouter {
             router.exactInputSingle(params);
         } else if (command == SwapCommands.ExactInput) {
             ISwapRouter02.ExactInputParams memory params;
-            params.path = _fixPath(address(inputToken), tokenOut, swapData);
+            // params.path = _fixPath(address(inputToken), tokenOut, swapData);
+            params.path = swapData;
             params.recipient = address(this);
             params.amountIn = amountIn;
             params.amountOutMinimum = amountOut;
 
             router.exactInput(params);
         } else if (command == SwapCommands.ExactTokensForTokens) {
-            address[] memory path = _fixPath(address(inputToken), tokenOut, abi.decode(swapData, (address[])));
+            //address[] memory path = _fixPath(address(inputToken), tokenOut, abi.decode(swapData, (address[])));
 
-            router.swapExactTokensForTokens(amountIn, amountOut, path, address(this));
+            router.swapExactTokensForTokens(amountIn, amountOut, abi.decode(swapData, (address[])), address(this));
         } else if (command == SwapCommands.ExactOutputSingle) {
             ISwapRouter02.ExactOutputSingleParams memory params;
             params.tokenIn = address(inputToken);
@@ -88,19 +91,21 @@ library SkipSwapRouter {
             router.exactOutputSingle(params);
         } else if (command == SwapCommands.ExactOutput) {
             ISwapRouter02.ExactOutputParams memory params;
-            params.path = _fixPath(tokenOut, address(inputToken), swapData);
+            // params.path = _fixPath(tokenOut, address(inputToken), swapData);
+            params.path = swapData;
             params.recipient = address(this);
             params.amountInMaximum = amountIn;
             params.amountOut = amountOut;
 
             router.exactOutput(params);
         } else if (command == SwapCommands.TokensForExactTokens) {
-            address[] memory path = _fixPath(tokenOut, address(inputToken), abi.decode(swapData, (address[])));
+            //address[] memory path = _fixPath(tokenOut, address(inputToken), abi.decode(swapData, (address[])));
 
-            router.swapTokensForExactTokens(amountOut, amountIn, path, address(this));
+            router.swapTokensForExactTokens(amountOut, amountIn, abi.decode(swapData, (address[])), address(this));
         }
 
-        if (amountOut < outputToken.balanceOf(address(this)) - preBalOut) {
+        outputAmount = outputToken.balanceOf(address(this)) - preBalOut;
+        if (outputAmount < amountOut) {
             revert InsufficientOutputAmount();
         }
 

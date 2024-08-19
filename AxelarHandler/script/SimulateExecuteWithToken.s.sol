@@ -50,21 +50,15 @@ contract SimulateExecuteWithToken is Script, Test {
         mockGateway.saveTokenAddress(tokenInputSymbol, tokenIn);
         deal(address(tokenIn), address(handler), amountIn);
 
-        bytes[] memory swaps = new bytes[](1);
-        swaps[0] = abi.encode(uint8(0), abi.encode(tokenOut, uint24(3000), uint160(0)));
-        bytes memory examplePayload = abi.encode(uint8(2), abi.encode(destination, amountOutMin, unwrap, swaps));
+        bytes memory swapPayload = abi.encode(uint8(0), tokenOut, amountOutMin, abi.encode(uint24(3000), uint160(0)));
+        bytes memory payload = abi.encode(uint8(2), abi.encode(destination, unwrap, swapPayload));
 
-        console2.logBytes(examplePayload);
+        console2.logBytes(payload);
 
         console2.log("Token Out Destination Balance Before: %s", IERC20(tokenOut).balanceOf(destination));
 
         handler.executeWithToken(
-            keccak256(abi.encodePacked("COMMAND_ID")),
-            "osmosis-7",
-            "mock_address",
-            examplePayload,
-            tokenInputSymbol,
-            amountIn
+            keccak256(abi.encodePacked("COMMAND_ID")), "osmosis-7", "mock_address", payload, tokenInputSymbol, amountIn
         );
 
         console2.log("Token Out Destination Balance After: %s", IERC20(tokenOut).balanceOf(destination));
