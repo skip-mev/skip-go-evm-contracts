@@ -55,13 +55,13 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         swapRouter = _swapRouter;
     }
 
-    function makePaymentForRelay(uint64 nonce, uint256 paymentAmount, string memory relayQuoteToken) external {
+    function makePaymentForRelay(uint64 nonce, uint256 paymentAmount, string memory memo) external {
         if (paymentAmount == 0) revert PaymentCannotBeZero();
         // Transfer the funds from the user into the contract and fail if the transfer reverts.
         if (!usdc.transferFrom(msg.sender, address(this), paymentAmount)) revert TransferFailed();
 
         // If the transfer succeeds, emit the payment event.
-        emit PaymentForRelay(nonce, paymentAmount, relayQuoteToken);
+        emit PaymentForRelay(nonce, paymentAmount, memo);
     }
 
     function requestCCTPTransfer(
@@ -71,7 +71,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         address burnToken,
         uint256 feeAmount,
         uint256 expiryTimestamp,
-        string memory relayQuoteToken
+        string memory memo
     ) external withExpiry(expiryTimestamp) {
         if (transferAmount == 0) revert PaymentCannotBeZero();
         if (feeAmount == 0) revert PaymentCannotBeZero();
@@ -85,7 +85,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         uint64 nonce = messenger.depositForBurn(transferAmount, destinationDomain, mintRecipient, burnToken);
 
         // As user already paid for the fee we emit the payment event.
-        emit PaymentForRelay(nonce, feeAmount, relayQuoteToken);
+        emit PaymentForRelay(nonce, feeAmount, memo);
     }
 
     function requestCCTPTransferWithCaller(
@@ -96,7 +96,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         uint256 feeAmount,
         bytes32 destinationCaller,
         uint256 expiryTimestamp,
-        string memory relayQuoteToken
+        string memory memo
     ) external withExpiry(expiryTimestamp) {
         if (transferAmount == 0) revert PaymentCannotBeZero();
         if (feeAmount == 0) revert PaymentCannotBeZero();
@@ -112,7 +112,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         );
 
         // As user already paid for the fee we emit the payment event.
-        emit PaymentForRelay(nonce, feeAmount, relayQuoteToken);
+        emit PaymentForRelay(nonce, feeAmount, memo);
     }
 
     function swapAndRequestCCTPTransfer(
@@ -124,7 +124,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         address burnToken,
         uint256 feeAmount,
         uint256 expiryTimestamp,
-        string memory relayQuoteToken
+        string memory memo
     ) external payable nonReentrant withExpiry(expiryTimestamp) {
         if (inputAmount == 0) revert PaymentCannotBeZero();
         if (feeAmount == 0) revert PaymentCannotBeZero();
@@ -147,7 +147,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         uint64 nonce = messenger.depositForBurn(transferAmount, destinationDomain, mintRecipient, burnToken);
 
         // As user already paid for the fee we emit the payment event.
-        emit PaymentForRelay(nonce, feeAmount, relayQuoteToken);
+        emit PaymentForRelay(nonce, feeAmount, memo);
     }
 
     function swapAndRequestCCTPTransferWithCaller(
@@ -160,7 +160,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         uint256 feeAmount,
         bytes32 destinationCaller,
         uint256 expiryTimestamp,
-        string memory relayQuoteToken
+        string memory memo
     ) external payable nonReentrant withExpiry(expiryTimestamp) {
         if (inputAmount == 0) revert PaymentCannotBeZero();
         if (feeAmount == 0) revert PaymentCannotBeZero();
@@ -185,7 +185,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
         );
 
         // As user already paid for the fee we emit the payment event.
-        emit PaymentForRelay(nonce, feeAmount, relayQuoteToken);
+        emit PaymentForRelay(nonce, feeAmount, memo);
     }
 
     function batchReceiveMessage(ICCTPRelayer.ReceiveCall[] memory receiveCalls) external {
