@@ -67,7 +67,7 @@ library SkipSwapRouter {
             router.exactInputSingle(params);
         } else if (command == SwapCommands.ExactInput) {
             ISwapRouter02.ExactInputParams memory params;
-            // params.path = _fixPath(address(inputToken), tokenOut, swapData);
+            params.path = _fixPath(address(inputToken), tokenOut, swapData);
             params.path = swapData;
             params.recipient = address(this);
             params.amountIn = amountIn;
@@ -75,9 +75,9 @@ library SkipSwapRouter {
 
             router.exactInput(params);
         } else if (command == SwapCommands.ExactTokensForTokens) {
-            //address[] memory path = _fixPath(address(inputToken), tokenOut, abi.decode(swapData, (address[])));
+            address[] memory path = _fixPath(address(inputToken), tokenOut, abi.decode(swapData, (address[])));
 
-            router.swapExactTokensForTokens(amountIn, amountOut, abi.decode(swapData, (address[])), address(this));
+            router.swapExactTokensForTokens(amountIn, amountOut, path, address(this));
         } else if (command == SwapCommands.ExactOutputSingle) {
             ISwapRouter02.ExactOutputSingleParams memory params;
             params.tokenIn = address(inputToken);
@@ -91,7 +91,7 @@ library SkipSwapRouter {
             router.exactOutputSingle(params);
         } else if (command == SwapCommands.ExactOutput) {
             ISwapRouter02.ExactOutputParams memory params;
-            // params.path = _fixPath(tokenOut, address(inputToken), swapData);
+            params.path = _fixPath(tokenOut, address(inputToken), swapData);
             params.path = swapData;
             params.recipient = address(this);
             params.amountInMaximum = amountIn;
@@ -99,9 +99,9 @@ library SkipSwapRouter {
 
             router.exactOutput(params);
         } else if (command == SwapCommands.TokensForExactTokens) {
-            //address[] memory path = _fixPath(tokenOut, address(inputToken), abi.decode(swapData, (address[])));
+            address[] memory path = _fixPath(address(inputToken), address(tokenOut), abi.decode(swapData, (address[])));
 
-            router.swapTokensForExactTokens(amountOut, amountIn, abi.decode(swapData, (address[])), address(this));
+            router.swapTokensForExactTokens(amountOut, amountIn, path, address(this));
         }
 
         outputAmount = outputToken.balanceOf(address(this)) - preBalOut;

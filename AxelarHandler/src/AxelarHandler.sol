@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.18;
 
+import {console} from "forge-std/console.sol";
+
 import {IWETH} from "./interfaces/IWETH.sol";
 
 import {IAxelarGasService} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGasService.sol";
@@ -361,14 +363,12 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
     /// @notice Internal function called by the AxelarExecutor when a GMP call is made to this contract.
     /// @notice Receives the tokens and unwraps them if it's wrapped native currency.
-    /// @param sourceChain the name of the chain where the GMP message originated.
-    /// @param sourceAddress the address where the GMP message originated.
-    /// @param sourceChain the payload that was sent along with the GMP message.
+    /// @param payload the payload that was sent along with the GMP message.
     /// @param tokenSymbol the symbol of the tokens received.
     /// @param amount the amount of tokens received.
     function _executeWithToken(
-        string calldata sourceChain,
-        string calldata sourceAddress,
+        string calldata, // sourceChain
+        string calldata, // sourceAddress
         bytes calldata payload,
         string calldata tokenSymbol,
         uint256 amount
@@ -403,6 +403,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             }
         } else if (command == Commands.MultiSwap) {
             (address destination, bool unwrapOut, bytes[] memory swaps) = abi.decode(data, (address, bool, bytes[]));
+            console.log("debug");
 
             try SkipSwapRouter.multiSwap(swapRouter, destination, tokenIn, amount, swaps) returns (
                 IERC20 tokenOut, uint256 amountOut
