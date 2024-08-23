@@ -281,7 +281,7 @@ contract CCTPRelayerTest is Test {
 
             vm.startPrank(ACTOR_1);
             relayer.swapAndRequestCCTPTransfer{value: inputAmount}(
-                inputToken, inputAmount, swapCalldata, domain, mintRecipent, address(usdc), feeAmount, 0, ""
+                inputToken, inputAmount, swapCalldata, domain, mintRecipent, address(usdc), feeAmount
             );
             vm.stopPrank();
 
@@ -296,7 +296,7 @@ contract CCTPRelayerTest is Test {
             vm.startPrank(ACTOR_1);
             IERC20(inputToken).approve(address(relayer), inputAmount);
             relayer.swapAndRequestCCTPTransfer(
-                inputToken, inputAmount, swapCalldata, domain, mintRecipent, address(usdc), feeAmount, 0, ""
+                inputToken, inputAmount, swapCalldata, domain, mintRecipent, address(usdc), feeAmount
             );
             vm.stopPrank();
 
@@ -336,9 +336,7 @@ contract CCTPRelayerTest is Test {
                 mintRecipent,
                 address(usdc),
                 feeAmount,
-                keccak256(abi.encodePacked("random caller")),
-                0,
-                ""
+                keccak256(abi.encodePacked("random caller"))
             );
             vm.stopPrank();
 
@@ -360,9 +358,7 @@ contract CCTPRelayerTest is Test {
                 mintRecipent,
                 address(usdc),
                 feeAmount,
-                keccak256(abi.encodePacked("random caller")),
-                0,
-                ""
+                keccak256(abi.encodePacked("random caller"))
             );
             vm.stopPrank();
 
@@ -405,7 +401,7 @@ contract CCTPRelayerTest is Test {
 
         vm.startPrank(ACTOR_1);
         usdc.approve(address(relayer), amount);
-        relayer.requestCCTPTransfer(transferAmount, domain, mintRecipent, address(usdc), feeAmount, 0, "");
+        relayer.requestCCTPTransfer(transferAmount, domain, mintRecipent, address(usdc), feeAmount);
         vm.stopPrank();
 
         assertEq(usdc.allowance(address(relayer), address(messenger)), 0, "Messenger Allowance Remaining After Payment");
@@ -426,7 +422,7 @@ contract CCTPRelayerTest is Test {
         vm.startPrank(ACTOR_1);
         usdc.approve(address(relayer), amount);
         relayer.requestCCTPTransferWithCaller(
-            transferAmount, domain, mintRecipent, address(usdc), feeAmount, keccak256(abi.encodePacked("random caller")), 0, ""
+            transferAmount, domain, mintRecipent, address(usdc), feeAmount, keccak256(abi.encodePacked("random caller"))
         );
         vm.stopPrank();
 
@@ -474,7 +470,7 @@ contract CCTPRelayerTest is Test {
 
         vm.startPrank(ACTOR_1);
         usdc.approve(address(relayer), amount);
-        relayer.makePaymentForRelay(nonce, amount, "");
+        relayer.makePaymentForRelay(nonce, amount);
         vm.stopPrank();
 
         assertEq(usdc.allowance(ACTOR_1, address(relayer)), 0, "Allowance Remaining After Payment");

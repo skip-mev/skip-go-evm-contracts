@@ -16,7 +16,9 @@ interface ICCTPRelayer {
     error InsufficientNativeToken();
     error Reentrancy();
 
-    event PaymentForRelay(uint64 nonce, uint256 paymentAmount, string relayQuoteToken);
+    event PaymentForRelay(uint64 nonce, uint256 paymentAmount);
+    
+    event RelayMemo(string memo);
 
     event FailedReceiveMessage(bytes message, bytes attestation);
 
@@ -25,15 +27,13 @@ interface ICCTPRelayer {
         bytes attestation;
     }
 
-    function makePaymentForRelay(uint64 nonce, uint256 paymentAmount, string memory relayQuoteToken) external;
+    function makePaymentForRelay(uint64 nonce, uint256 paymentAmount) external;
 
     function requestCCTPTransfer(
         uint256 transferAmount,
         uint32 destinationDomain,
         bytes32 mintRecipient,
         address burnToken,
-        uint256 feeAmount,
-        uint256 expiryTimestamp,
-        string memory relayQuoteToken
+        uint256 feeAmount
     ) external;
 }
