@@ -382,18 +382,15 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             _sendToken(token, amount, destination);
         } else if (command == Commands.SendNative) {
             address destination = abi.decode(data, (address));
-            if (_wETHSymbolHash != DISABLED_SYMBOL && keccak256(abi.encodePacked(tokenSymbol)) == _wETHSymbolHash) {
-                _sendNative(token, amount, destination);
-            } else {
-                _sendToken(token, amount, destination);
-            }
+
+            _sendNative(token, amount, destination);
         } else if (command == Commands.Swap) {
             (address destination, bool unwrapOut, bytes memory swap) = abi.decode(data, (address, bool, bytes));
 
             try SkipSwapRouter.swap(swapRouter, destination, tokenIn, amount, swap) returns (
                 IERC20 tokenOut, uint256 amountOut
             ) {
-                if (unwrapOut && address(tokenOut) == _getTokenAddress(wETHSymbol)) {
+                if(unwrapOut) {
                     _sendNative(address(tokenOut), amountOut, destination);
                 } else {
                     _sendToken(address(tokenOut), amountOut, destination);
@@ -408,7 +405,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             try SkipSwapRouter.multiSwap(swapRouter, destination, tokenIn, amount, swaps) returns (
                 IERC20 tokenOut, uint256 amountOut
             ) {
-                if (unwrapOut && address(tokenOut) == _getTokenAddress(wETHSymbol)) {
+                if(unwrapOut) {
                     _sendNative(address(tokenOut), amountOut, destination);
                 } else {
                     _sendToken(address(tokenOut), amountOut, destination);
@@ -426,15 +423,9 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     }
 
     function _sendNative(address token, uint256 amount, address destination) internal {
-        // Unwrap native token.
-        IWETH weth = IWETH(token);
-        weth.withdraw(amount);
-
-        // Send it unwrapped to the destination
-        (bool success,) = destination.call{value: amount}("");
-
-        if (!success) {
-            revert NativePaymentFailed();
+        try SkipSwapRouter.sendNative(token, amount, destination) {}
+        catch {
+            _sendToken(token, amount, destination);
         }
     }
 

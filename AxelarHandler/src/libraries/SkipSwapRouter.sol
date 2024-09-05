@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IWETH} from "../interfaces/IWETH.sol";
 import {ISwapRouter02} from "../interfaces/ISwapRouter02.sol";
 import {BytesLib, Path} from "./Path.sol";
 
@@ -13,6 +14,7 @@ library SkipSwapRouter {
     using Path for bytes;
 
     error InsufficientOutputAmount();
+    error NativePaymentFailed();
 
     enum SwapCommands {
         ExactInputSingle,
@@ -113,6 +115,19 @@ library SkipSwapRouter {
         if (dust != 0) {
             inputToken.forceApprove(address(router), 0);
             inputToken.safeTransfer(destination, dust);
+        }
+    }
+
+    function sendNative(address token, uint256 amount, address destination) external {
+        // Unwrap native token.
+        IWETH weth = IWETH(token);
+        weth.withdraw(amount);
+
+        // Send it unwrapped to the destination
+        (bool success,) = destination.call{value: amount}("");
+
+        if (!success) {
+            revert NativePaymentFailed();
         }
     }
 
