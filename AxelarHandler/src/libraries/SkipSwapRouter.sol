@@ -5,8 +5,6 @@ import {IWETH} from "../interfaces/IWETH.sol";
 import {ISwapRouter02} from "../interfaces/ISwapRouter02.sol";
 import {BytesLib, Path} from "./Path.sol";
 
-import {console} from "forge-std/Test.sol";
-
 pragma solidity >= 0.8.18;
 
 library SkipSwapRouter {

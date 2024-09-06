@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.18;
 
-import {console} from "forge-std/console.sol";
-
 import {IWETH} from "./interfaces/IWETH.sol";
 
 import {IAxelarGasService} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGasService.sol";
@@ -390,7 +388,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             try SkipSwapRouter.swap(swapRouter, destination, tokenIn, amount, swap) returns (
                 IERC20 tokenOut, uint256 amountOut
             ) {
-                if(unwrapOut) {
+                if (unwrapOut) {
                     _sendNative(address(tokenOut), amountOut, destination);
                 } else {
                     _sendToken(address(tokenOut), amountOut, destination);
@@ -400,12 +398,11 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             }
         } else if (command == Commands.MultiSwap) {
             (address destination, bool unwrapOut, bytes[] memory swaps) = abi.decode(data, (address, bool, bytes[]));
-            console.log("debug");
 
             try SkipSwapRouter.multiSwap(swapRouter, destination, tokenIn, amount, swaps) returns (
                 IERC20 tokenOut, uint256 amountOut
             ) {
-                if(unwrapOut) {
+                if (unwrapOut) {
                     _sendNative(address(tokenOut), amountOut, destination);
                 } else {
                     _sendToken(address(tokenOut), amountOut, destination);
