@@ -6,19 +6,21 @@ import {IWETH} from "./interfaces/IWETH.sol";
 import {IAxelarGasService} from "lib/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGasService.sol";
 import {AxelarExecutableUpgradeable} from "./AxelarExecutableUpgradeable.sol";
 
-import {IERC20Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
-import {SafeERC20Upgradeable} from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable2StepUpgradeable} from
     "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
+import {ISwapRouter02} from "./interfaces/ISwapRouter02.sol";
+import {SkipSwapRouter} from "./libraries/SkipSwapRouter.sol";
+
 /// @title AxelarHandler
 /// @notice allows to send and receive tokens to/from other chains through axelar gateway while wrapping the native tokens.
 /// @author Skip Protocol.
 contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, UUPSUpgradeable {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20 for IERC20;
 
     error EmptySymbol();
     error NativeSentDoesNotMatchAmounts();
@@ -35,6 +37,14 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     error InsufficientNativeToken();
     error ETHSendFailed();
     error Reentrancy();
+    error FunctionCodeNotSupported();
+
+    enum Commands {
+        SendToken,
+        SendNative,
+        Swap,
+        MultiSwap
+    }
 
     bytes32 private _wETHSymbolHash;
 
@@ -45,7 +55,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
     bytes32 public constant DISABLED_SYMBOL = keccak256(abi.encodePacked("DISABLED"));
 
-    address public swapRouter;
+    ISwapRouter02 public swapRouter;
 
     bool internal reentrant;
 
@@ -83,7 +93,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     function setSwapRouter(address _swapRouter) external onlyOwner {
         if (_swapRouter == address(0)) revert ZeroAddress();
 
-        swapRouter = _swapRouter;
+        swapRouter = ISwapRouter02(_swapRouter);
     }
 
     /// @notice Sends native currency to other chains through the axelar gateway.
@@ -117,7 +127,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         if (amount == 0) revert ZeroAmount();
         if (bytes(symbol).length == 0) revert EmptySymbol();
 
-        IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(symbol));
+        IERC20 token = IERC20(_getTokenAddress(symbol));
 
         token.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -179,7 +189,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         if (bytes(symbol).length == 0) revert EmptySymbol();
 
         // Get the token address.
-        IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(symbol));
+        IERC20 token = IERC20(_getTokenAddress(symbol));
 
         // Transfer the amount from the msg.sender.
         token.safeTransferFrom(msg.sender, address(this), amount);
@@ -217,7 +227,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         if (bytes(symbol).length == 0) revert EmptySymbol();
 
         // Get the address of the output token based on the symbol provided
-        IERC20Upgradeable outputToken = IERC20Upgradeable(_getTokenAddress(symbol));
+        IERC20 outputToken = IERC20(_getTokenAddress(symbol));
 
         uint256 outputAmount;
         if (inputToken == address(0)) {
@@ -229,7 +239,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             uint256 preOutputBalance = outputToken.balanceOf(address(this));
 
             // Call the swap router and perform the swap
-            (bool success,) = swapRouter.call{value: amount}(swapCalldata);
+            (bool success,) = address(swapRouter).call{value: amount}(swapCalldata);
             if (!success) revert SwapFailed();
 
             // Get the contract's balances after the swap
@@ -251,18 +261,18 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             if (gasPaymentAmount != msg.value) revert();
 
             // Transfer input ERC20 tokens to the contract
-            IERC20Upgradeable token = IERC20Upgradeable(inputToken);
+            IERC20 token = IERC20(inputToken);
             token.safeTransferFrom(msg.sender, address(this), amount);
 
             // Approve the swap router to spend the input tokens
-            token.safeApprove(swapRouter, amount);
+            token.safeApprove(address(swapRouter), amount);
 
             // Get the contract's balances previous to the swap
             uint256 preInputBalance = token.balanceOf(address(this));
             uint256 preOutputBalance = outputToken.balanceOf(address(this));
 
             // Call the swap router and perform the swap
-            (bool success,) = swapRouter.call(swapCalldata);
+            (bool success,) = address(swapRouter).call(swapCalldata);
             if (!success) revert SwapFailed();
 
             // Get the contract's balances after the swap
@@ -275,10 +285,10 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
             // Refund the remaining amount
             if (dust != 0) {
-                token.transfer(msg.sender, dust);
+                token.safeTransfer(msg.sender, dust);
 
                 // Revoke approval
-                token.safeApprove(swapRouter, 0);
+                token.safeApprove(address(swapRouter), 0);
             }
         }
 
@@ -312,7 +322,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         if (bytes(symbol).length == 0) revert EmptySymbol();
 
         // Get the token address.
-        IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(symbol));
+        IERC20 token = IERC20(_getTokenAddress(symbol));
 
         // Transfer the amount and gas payment amount from the msg.sender.
         token.safeTransferFrom(msg.sender, address(this), amount + gasPaymentAmount);
@@ -343,46 +353,76 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         if (token == address(0)) revert TokenNotSupported();
 
         if (!approved[token]) {
-            IERC20Upgradeable(token).safeApprove(address(gateway), type(uint256).max);
-            IERC20Upgradeable(token).safeApprove(address(gasService), type(uint256).max);
+            IERC20(token).safeApprove(address(gateway), type(uint256).max);
+            IERC20(token).safeApprove(address(gasService), type(uint256).max);
             approved[token] = true;
         }
     }
 
     /// @notice Internal function called by the AxelarExecutor when a GMP call is made to this contract.
     /// @notice Receives the tokens and unwraps them if it's wrapped native currency.
-    /// @param sourceChain the name of the chain where the GMP message originated.
-    /// @param sourceAddress the address where the GMP message originated.
-    /// @param sourceChain the payload that was sent along with the GMP message.
+    /// @param payload the payload that was sent along with the GMP message.
     /// @param tokenSymbol the symbol of the tokens received.
     /// @param amount the amount of tokens received.
     function _executeWithToken(
-        string calldata sourceChain,
-        string calldata sourceAddress,
+        string calldata, // sourceChain
+        string calldata, // sourceAddress
         bytes calldata payload,
         string calldata tokenSymbol,
         uint256 amount
     ) internal override {
-        (bool unwrap, address destination) = abi.decode(payload, (bool, address));
-        IERC20Upgradeable token = IERC20Upgradeable(_getTokenAddress(tokenSymbol));
+        address token = _getTokenAddress(tokenSymbol);
+        IERC20 tokenIn = IERC20(token);
 
-        // If unwrap is set and the token can be unwrapped.
-        if (unwrap && _wETHSymbolHash != DISABLED_SYMBOL && keccak256(abi.encodePacked(tokenSymbol)) == _wETHSymbolHash)
-        {
-            // Unwrap native token.
-            IWETH weth = IWETH(address(token));
-            weth.withdraw(amount);
+        (Commands command, bytes memory data) = abi.decode(payload, (Commands, bytes));
+        if (command == Commands.SendToken) {
+            address destination = abi.decode(data, (address));
+            _sendToken(token, amount, destination);
+        } else if (command == Commands.SendNative) {
+            address destination = abi.decode(data, (address));
 
-            // Send it unwrapped to the destination
-            (bool success,) = destination.call{value: amount}("");
+            _sendNative(token, amount, destination);
+        } else if (command == Commands.Swap) {
+            (address destination, bool unwrapOut, bytes memory swap) = abi.decode(data, (address, bool, bytes));
 
-            if (!success) {
-                revert NativePaymentFailed();
+            try SkipSwapRouter.swap(swapRouter, destination, tokenIn, amount, swap) returns (
+                IERC20 tokenOut, uint256 amountOut
+            ) {
+                if (unwrapOut) {
+                    _sendNative(address(tokenOut), amountOut, destination);
+                } else {
+                    _sendToken(address(tokenOut), amountOut, destination);
+                }
+            } catch {
+                _sendToken(token, amount, destination);
             }
+        } else if (command == Commands.MultiSwap) {
+            (address destination, bool unwrapOut, bytes[] memory swaps) = abi.decode(data, (address, bool, bytes[]));
+
+            try SkipSwapRouter.multiSwap(swapRouter, destination, tokenIn, amount, swaps) returns (
+                IERC20 tokenOut, uint256 amountOut
+            ) {
+                if (unwrapOut) {
+                    _sendNative(address(tokenOut), amountOut, destination);
+                } else {
+                    _sendToken(address(tokenOut), amountOut, destination);
+                }
+            } catch {
+                _sendToken(token, amount, destination);
+            }
+        } else {
+            revert FunctionCodeNotSupported();
         }
-        // Just send the tokens received to the destination.
-        else {
-            token.safeTransfer(destination, amount);
+    }
+
+    function _sendToken(address token, uint256 amount, address destination) internal {
+        IERC20(token).safeTransfer(destination, amount);
+    }
+
+    function _sendNative(address token, uint256 amount, address destination) internal {
+        try SkipSwapRouter.sendNative(token, amount, destination) {}
+        catch {
+            _sendToken(token, amount, destination);
         }
     }
 
