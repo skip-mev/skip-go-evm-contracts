@@ -14,11 +14,15 @@ contract AxelarExecutableUpgradeable is IAxelarExecutable, Initializable {
         _disableInitializers();
     }
 
-    function __AxelarExecutable_init(address axelarGateway) internal onlyInitializing {
+    function __AxelarExecutable_init(
+        address axelarGateway
+    ) internal onlyInitializing {
         __AxelarExecutable_init_unchained(axelarGateway);
     }
 
-    function __AxelarExecutable_init_unchained(address axelarGateway) internal onlyInitializing {
+    function __AxelarExecutable_init_unchained(
+        address axelarGateway
+    ) internal onlyInitializing {
         gateway = IAxelarGateway(axelarGateway);
     }
 
@@ -36,9 +40,14 @@ contract AxelarExecutableUpgradeable is IAxelarExecutable, Initializable {
     ) external {
         bytes32 payloadHash = keccak256(payload);
 
-        if (!gateway.validateContractCall(commandId, sourceChain, sourceAddress, payloadHash)) {
-            revert NotApprovedByGateway();
-        }
+        if (
+            !gateway.validateContractCall(
+                commandId,
+                sourceChain,
+                sourceAddress,
+                payloadHash
+            )
+        ) revert NotApprovedByGateway();
 
         _execute(sourceChain, sourceAddress, payload);
     }
@@ -54,16 +63,30 @@ contract AxelarExecutableUpgradeable is IAxelarExecutable, Initializable {
         bytes32 payloadHash = keccak256(payload);
 
         if (
-            !gateway.validateContractCallAndMint(commandId, sourceChain, sourceAddress, payloadHash, tokenSymbol, amount)
+            !gateway.validateContractCallAndMint(
+                commandId,
+                sourceChain,
+                sourceAddress,
+                payloadHash,
+                tokenSymbol,
+                amount
+            )
         ) revert NotApprovedByGateway();
 
-        _executeWithToken(sourceChain, sourceAddress, payload, tokenSymbol, amount);
+        _executeWithToken(
+            sourceChain,
+            sourceAddress,
+            payload,
+            tokenSymbol,
+            amount
+        );
     }
 
-    function _execute(string calldata sourceChain, string calldata sourceAddress, bytes calldata payload)
-        internal
-        virtual
-    {}
+    function _execute(
+        string calldata sourceChain,
+        string calldata sourceAddress,
+        bytes calldata payload
+    ) internal virtual {}
 
     function _executeWithToken(
         string calldata sourceChain,
