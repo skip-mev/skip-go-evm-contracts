@@ -72,6 +72,20 @@ contract GoFastHandler is Ownable {
         return orderId;
     }
 
+    function submitOrder(
+        bytes32 sender,
+        bytes32 recipient,
+        uint256 amountIn,
+        uint256 amountOut,
+        uint32 destinationDomain,
+        uint64 timeoutTimestamp,
+        bytes calldata data
+    ) external returns (bytes32) {
+        return fastTransferGateway.submitOrder(
+            sender, recipient, amountIn, amountOut, destinationDomain, timeoutTimestamp, data
+        );
+    }
+
     function _swap(address tokenIn, uint256 amountIn, bytes memory swapCalldata) internal returns (uint256 amountOut) {
         address tokenOut = fastTransferGateway.token();
 
