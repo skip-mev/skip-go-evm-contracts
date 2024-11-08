@@ -41,17 +41,23 @@ contract GoFastHandler is Ownable {
     ) public payable returns (bytes32) {
         require(executionFeeAmount != 0, "execution fee cannot be zero");
         require(solverFeeBPS != 0, "solver fee cannot be zero");
-        uint256 swapAmountOut = _swap(tokenIn, swapAmountIn, swapCalldata);
 
-        uint256 solverFeeAmount = (swapAmountOut * solverFeeBPS) / 10000;
-        uint256 totalFee = executionFeeAmount + solverFeeAmount;
+        uint256 swapAmountOut;
+        uint256 swapAmountOutAfterFee;
 
-        require(swapAmountOut >= totalFee, "amount received from swap is less than fee");
+        {
+            swapAmountOut = _swap(tokenIn, swapAmountIn, swapCalldata);
 
-        // this is the amount that the recipient will receive on the destination chain
-        uint256 swapAmountOutAfterFee = swapAmountOut - totalFee;
+            uint256 solverFeeAmount = (swapAmountOut * solverFeeBPS) / 10000;
+            uint256 totalFee = executionFeeAmount + solverFeeAmount;
 
-        return fastTransferGateway.submitOrder(
+            require(swapAmountOut >= totalFee, "amount received from swap is less than fee");
+
+            // this is the amount that the recipient will receive on the destination chain
+            swapAmountOutAfterFee = swapAmountOut - totalFee;
+        }
+
+        bytes32 orderId = fastTransferGateway.submitOrder(
             sender,
             recipient,
             swapAmountOut,
@@ -60,6 +66,10 @@ contract GoFastHandler is Ownable {
             timeoutTimestamp,
             destinationCalldata
         );
+
+        _refundToken(tokenIn);
+
+        return orderId;
     }
 
     function _swap(address tokenIn, uint256 amountIn, bytes memory swapCalldata) internal returns (uint256 amountOut) {
@@ -82,5 +92,22 @@ contract GoFastHandler is Ownable {
         }
 
         amountOut = IERC20(tokenOut).balanceOf(address(this)) - tokenOutBalanceBefore;
+    }
+
+    function _tokenBalance(address token) internal view returns (uint256) {
+        if (token != address(0)) {
+            return IERC20(token).balanceOf(address(this));
+        } else {
+            return address(this).balance;
+        }
+    }
+
+    function _refundToken(address token) internal {
+        uint256 amount = _tokenBalance(token);
+        if (token != address(0)) {
+            IERC20(token).safeTransfer(msg.sender, amount);
+        } else {
+            payable(msg.sender).transfer(amount);
+        }
     }
 }
