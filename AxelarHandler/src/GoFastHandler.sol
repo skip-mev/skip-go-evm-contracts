@@ -3,11 +3,12 @@ pragma solidity ^0.8.18;
 
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
 import {ISwapRouter02} from "./interfaces/ISwapRouter02.sol";
 import {IFastTransferGateway} from "./interfaces/IFastTransferGateway.sol";
 
-contract GoFastHandler {
+contract GoFastHandler is Ownable {
     using SafeERC20 for IERC20;
 
     ISwapRouter02 public swapRouter;
@@ -15,6 +16,14 @@ contract GoFastHandler {
 
     constructor(address _swapRouter, address _fastTransferGateway) {
         swapRouter = ISwapRouter02(_swapRouter);
+        fastTransferGateway = IFastTransferGateway(_fastTransferGateway);
+    }
+
+    function setSwapRouter(address _swapRouter) public onlyOwner {
+        swapRouter = ISwapRouter02(_swapRouter);
+    }
+
+    function setFastTransferGateway(address _fastTransferGateway) public onlyOwner {
         fastTransferGateway = IFastTransferGateway(_fastTransferGateway);
     }
 
