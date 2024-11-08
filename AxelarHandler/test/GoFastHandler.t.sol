@@ -37,6 +37,7 @@ contract GoFastHandlerTest is Test {
         address tokenIn = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
         uint256 amountIn = 1 ether;
         uint256 fastTransferFee = 1_000_000; // 1 USDC
+        uint256 solverFeeBPS = 10; // 0.1%
         uint32 destinationDomain = 10;
         uint64 timeoutTimestamp = uint64(block.timestamp + 100);
         bytes32 sender = keccak256("sender");
@@ -55,7 +56,7 @@ contract GoFastHandlerTest is Test {
                 sender,
                 recipient,
                 2702776834,
-                2701776834,
+                2699074058,
                 destinationDomain,
                 timeoutTimestamp,
                 ""
@@ -67,7 +68,16 @@ contract GoFastHandlerTest is Test {
         IERC20(tokenIn).approve(address(handler), amountIn);
 
         bytes32 orderId = handler.swapAndSubmitOrder(
-            tokenIn, amountIn, swapCalldata, fastTransferFee, sender, recipient, destinationDomain, timeoutTimestamp, ""
+            tokenIn,
+            amountIn,
+            swapCalldata,
+            fastTransferFee,
+            solverFeeBPS,
+            sender,
+            recipient,
+            destinationDomain,
+            timeoutTimestamp,
+            ""
         );
         vm.stopPrank();
 
@@ -78,6 +88,7 @@ contract GoFastHandlerTest is Test {
         address tokenIn = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // USDT
         uint256 amountIn = 100_000_000;
         uint256 fastTransferFee = 1_000_000; // 1 USDC
+        uint256 solverFeeBPS = 10; // 0.1%
         uint32 destinationDomain = 10;
         uint64 timeoutTimestamp = uint64(block.timestamp + 100);
         bytes32 sender = keccak256("sender");
@@ -96,7 +107,7 @@ contract GoFastHandlerTest is Test {
                 sender,
                 recipient,
                 99963678,
-                98963678,
+                98863715,
                 destinationDomain,
                 timeoutTimestamp,
                 ""
@@ -108,7 +119,16 @@ contract GoFastHandlerTest is Test {
         IERC20(tokenIn).approve(address(handler), amountIn);
 
         bytes32 orderId = handler.swapAndSubmitOrder(
-            tokenIn, amountIn, swapCalldata, fastTransferFee, sender, recipient, destinationDomain, timeoutTimestamp, ""
+            tokenIn,
+            amountIn,
+            swapCalldata,
+            fastTransferFee,
+            solverFeeBPS,
+            sender,
+            recipient,
+            destinationDomain,
+            timeoutTimestamp,
+            ""
         );
         vm.stopPrank();
 
@@ -119,6 +139,7 @@ contract GoFastHandlerTest is Test {
         address tokenIn = address(0); // ETH
         uint256 amountIn = 1 ether;
         uint256 fastTransferFee = 1_000_000; // 1 USDC
+        uint256 solverFeeBPS = 10; // 0.1%
         uint32 destinationDomain = 10;
         uint64 timeoutTimestamp = uint64(block.timestamp + 100);
         bytes32 sender = keccak256("sender");
@@ -139,7 +160,7 @@ contract GoFastHandlerTest is Test {
                 sender,
                 recipient,
                 2702776834,
-                2701776834,
+                2699074058,
                 destinationDomain,
                 timeoutTimestamp,
                 ""
@@ -149,7 +170,16 @@ contract GoFastHandlerTest is Test {
 
         vm.startPrank(alice);
         bytes32 orderId = handler.swapAndSubmitOrder{value: amountIn}(
-            tokenIn, amountIn, swapCalldata, fastTransferFee, sender, recipient, destinationDomain, timeoutTimestamp, ""
+            tokenIn,
+            amountIn,
+            swapCalldata,
+            fastTransferFee,
+            solverFeeBPS,
+            sender,
+            recipient,
+            destinationDomain,
+            timeoutTimestamp,
+            ""
         );
         vm.stopPrank();
 
@@ -161,6 +191,7 @@ contract GoFastHandlerTest is Test {
         uint256 amountIn = 1 ether;
         uint256 amountOutMinimum = 1_000_000_000_000; // 1,000,000 USDC
         uint256 fastTransferFee = 1_000_000; // 1 USDC
+        uint256 solverFeeBPS = 10; // 0.1%
         uint32 destinationDomain = 10;
         uint64 timeoutTimestamp = uint64(block.timestamp + 100);
         bytes32 sender = keccak256("sender");
@@ -178,7 +209,16 @@ contract GoFastHandlerTest is Test {
 
         vm.expectRevert("Too little received");
         handler.swapAndSubmitOrder(
-            tokenIn, amountIn, swapCalldata, fastTransferFee, sender, recipient, destinationDomain, timeoutTimestamp, ""
+            tokenIn,
+            amountIn,
+            swapCalldata,
+            fastTransferFee,
+            solverFeeBPS,
+            sender,
+            recipient,
+            destinationDomain,
+            timeoutTimestamp,
+            ""
         );
         vm.stopPrank();
     }
@@ -187,6 +227,7 @@ contract GoFastHandlerTest is Test {
         address tokenIn = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
         uint256 amountIn = 1 ether;
         uint256 fastTransferFee = 3000_000_000; // 3000 USDC
+        uint256 solverFeeBPS = 10; // 0.1%
         uint32 destinationDomain = 10;
         uint64 timeoutTimestamp = uint64(block.timestamp + 100);
         bytes32 sender = keccak256("sender");
@@ -201,9 +242,18 @@ contract GoFastHandlerTest is Test {
         vm.startPrank(alice);
         IERC20(tokenIn).approve(address(handler), amountIn);
 
-        vm.expectRevert("amount received from swap is less than fast transfer fee");
+        vm.expectRevert("amount received from swap is less than fee");
         handler.swapAndSubmitOrder(
-            tokenIn, amountIn, swapCalldata, fastTransferFee, sender, recipient, destinationDomain, timeoutTimestamp, ""
+            tokenIn,
+            amountIn,
+            swapCalldata,
+            fastTransferFee,
+            solverFeeBPS,
+            sender,
+            recipient,
+            destinationDomain,
+            timeoutTimestamp,
+            ""
         );
         vm.stopPrank();
     }
@@ -212,6 +262,7 @@ contract GoFastHandlerTest is Test {
         address tokenIn = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
         uint256 amountIn = 1 ether;
         uint256 fastTransferFee = 0;
+        uint256 solverFeeBPS = 10; // 0.1%
         uint32 destinationDomain = 10;
         uint64 timeoutTimestamp = uint64(block.timestamp + 100);
         bytes32 sender = keccak256("sender");
@@ -226,9 +277,53 @@ contract GoFastHandlerTest is Test {
         vm.startPrank(alice);
         IERC20(tokenIn).approve(address(handler), amountIn);
 
-        vm.expectRevert("fast transfer fee cannot be zero");
+        vm.expectRevert("execution fee cannot be zero");
         handler.swapAndSubmitOrder(
-            tokenIn, amountIn, swapCalldata, fastTransferFee, sender, recipient, destinationDomain, timeoutTimestamp, ""
+            tokenIn,
+            amountIn,
+            swapCalldata,
+            fastTransferFee,
+            solverFeeBPS,
+            sender,
+            recipient,
+            destinationDomain,
+            timeoutTimestamp,
+            ""
+        );
+        vm.stopPrank();
+    }
+
+    function testSwapAndSubmitOrderRevertsIfSolverFeeIsZero() public {
+        address tokenIn = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
+        uint256 amountIn = 1 ether;
+        uint256 fastTransferFee = 1_000_000; // 1 USDC
+        uint256 solverFeeBPS = 0;
+        uint32 destinationDomain = 10;
+        uint64 timeoutTimestamp = uint64(block.timestamp + 100);
+        bytes32 sender = keccak256("sender");
+        bytes32 recipient = keccak256("recipient");
+
+        bytes memory swapCalldata = _encodeSwapExactInputCalldata(tokenIn, usdc, 500, address(handler), amountIn, 0, 0);
+
+        deal(tokenIn, alice, amountIn);
+
+        vm.mockCall(fastTransferGateway, abi.encodeWithSelector(IFastTransferGateway.token.selector), abi.encode(usdc));
+
+        vm.startPrank(alice);
+        IERC20(tokenIn).approve(address(handler), amountIn);
+
+        vm.expectRevert("solver fee cannot be zero");
+        handler.swapAndSubmitOrder(
+            tokenIn,
+            amountIn,
+            swapCalldata,
+            fastTransferFee,
+            solverFeeBPS,
+            sender,
+            recipient,
+            destinationDomain,
+            timeoutTimestamp,
+            ""
         );
         vm.stopPrank();
     }

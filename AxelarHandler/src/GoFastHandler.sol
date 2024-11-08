@@ -22,21 +22,25 @@ contract GoFastHandler {
         address tokenIn,
         uint256 swapAmountIn,
         bytes memory swapCalldata,
-        uint256 feeAmount,
+        uint256 executionFeeAmount,
+        uint256 solverFeeBPS,
         bytes32 sender,
         bytes32 recipient,
         uint32 destinationDomain,
         uint64 timeoutTimestamp,
         bytes calldata destinationCalldata
     ) public payable returns (bytes32) {
-        require(feeAmount != 0, "fast transfer fee cannot be zero");
-
+        require(executionFeeAmount != 0, "execution fee cannot be zero");
+        require(solverFeeBPS != 0, "solver fee cannot be zero");
         uint256 swapAmountOut = _swap(tokenIn, swapAmountIn, swapCalldata);
 
-        require(swapAmountOut >= feeAmount, "amount received from swap is less than fast transfer fee");
+        uint256 solverFeeAmount = (swapAmountOut * solverFeeBPS) / 10000;
+        uint256 totalFee = executionFeeAmount + solverFeeAmount;
+
+        require(swapAmountOut >= totalFee, "amount received from swap is less than fee");
 
         // this is the amount that the recipient will receive on the destination chain
-        uint256 swapAmountOutAfterFee = swapAmountOut - feeAmount;
+        uint256 swapAmountOutAfterFee = swapAmountOut - totalFee;
 
         return fastTransferGateway.submitOrder(
             sender,
