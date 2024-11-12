@@ -3,18 +3,26 @@ pragma solidity ^0.8.18;
 
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {OwnableUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 import {ISwapRouter02} from "./interfaces/ISwapRouter02.sol";
 import {IFastTransferGateway} from "./interfaces/IFastTransferGateway.sol";
 
-contract GoFastHandler is Ownable {
+contract GoFastHandler is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
     ISwapRouter02 public swapRouter;
     IFastTransferGateway public fastTransferGateway;
 
-    constructor(address _swapRouter, address _fastTransferGateway) {
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _swapRouter, address _fastTransferGateway) public initializer {
+        __Ownable_init();
+
         swapRouter = ISwapRouter02(_swapRouter);
         fastTransferGateway = IFastTransferGateway(_fastTransferGateway);
     }
@@ -146,4 +154,6 @@ contract GoFastHandler is Ownable {
             payable(msg.sender).transfer(amount);
         }
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }

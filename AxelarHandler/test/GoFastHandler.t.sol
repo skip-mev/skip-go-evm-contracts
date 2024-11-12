@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 import "forge-std/Test.sol";
 
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {GoFastHandler} from "../src/GoFastHandler.sol";
 import {IFastTransferGateway} from "../src/interfaces/IFastTransferGateway.sol";
@@ -28,7 +29,12 @@ contract GoFastHandlerTest is Test {
         fastTransferGateway = address(0xC);
         uniswapRouter = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
 
-        handler = new GoFastHandler(uniswapRouter, fastTransferGateway);
+        GoFastHandler handlerImpl = new GoFastHandler();
+        ERC1967Proxy handlerProxy = new ERC1967Proxy(
+            address(handlerImpl),
+            abi.encodeWithSignature("initialize(address,address)", uniswapRouter, fastTransferGateway)
+        );
+        handler = GoFastHandler(payable(address(handlerProxy)));
 
         alice = makeAddr("alice");
     }
