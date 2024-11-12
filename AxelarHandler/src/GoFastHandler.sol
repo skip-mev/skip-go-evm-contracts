@@ -47,6 +47,7 @@ contract GoFastHandler is Ownable {
 
         {
             swapAmountOut = _swap(tokenIn, swapAmountIn, swapCalldata);
+            require(swapAmountOut != 0, "amount received from swap is zero");
 
             uint256 solverFeeAmount = (swapAmountOut * solverFeeBPS) / 10000;
             uint256 totalFee = executionFeeAmount + solverFeeAmount;
@@ -57,13 +58,14 @@ contract GoFastHandler is Ownable {
             swapAmountOutAfterFee = swapAmountOut - totalFee;
         }
 
-        bytes32 orderId = fastTransferGateway.submitOrder(
+        bytes32 orderId = _submitOrder(
             sender,
             recipient,
             swapAmountOut,
             swapAmountOutAfterFee,
             destinationDomain,
             timeoutTimestamp,
+            false,
             destinationCalldata
         );
 
@@ -81,6 +83,27 @@ contract GoFastHandler is Ownable {
         uint64 timeoutTimestamp,
         bytes calldata data
     ) external returns (bytes32) {
+        return _submitOrder(sender, recipient, amountIn, amountOut, destinationDomain, timeoutTimestamp, true, data);
+    }
+
+    function _submitOrder(
+        bytes32 sender,
+        bytes32 recipient,
+        uint256 amountIn,
+        uint256 amountOut,
+        uint32 destinationDomain,
+        uint64 timeoutTimestamp,
+        bool transferTokens,
+        bytes calldata data
+    ) internal returns (bytes32) {
+        address token = fastTransferGateway.token();
+
+        if (transferTokens) {
+            IERC20(token).safeTransferFrom(msg.sender, address(this), amountIn);
+        }
+
+        IERC20(token).safeApprove(address(fastTransferGateway), amountIn);
+
         return fastTransferGateway.submitOrder(
             sender, recipient, amountIn, amountOut, destinationDomain, timeoutTimestamp, data
         );
