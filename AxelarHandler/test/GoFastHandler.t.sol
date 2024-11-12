@@ -258,41 +258,6 @@ contract GoFastHandlerTest is Test {
         vm.stopPrank();
     }
 
-    function testSwapAndSubmitOrderRevertsIfFeeAmountIsZero() public {
-        address tokenIn = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
-        uint256 amountIn = 1 ether;
-        uint256 fastTransferFee = 0;
-        uint256 solverFeeBPS = 10; // 0.1%
-        uint32 destinationDomain = 10;
-        uint64 timeoutTimestamp = uint64(block.timestamp + 100);
-        bytes32 sender = keccak256("sender");
-        bytes32 recipient = keccak256("recipient");
-
-        bytes memory swapCalldata = _encodeSwapExactInputCalldata(tokenIn, usdc, 500, address(handler), amountIn, 0, 0);
-
-        deal(tokenIn, alice, amountIn);
-
-        vm.mockCall(fastTransferGateway, abi.encodeWithSelector(IFastTransferGateway.token.selector), abi.encode(usdc));
-
-        vm.startPrank(alice);
-        IERC20(tokenIn).approve(address(handler), amountIn);
-
-        vm.expectRevert("execution fee cannot be zero");
-        handler.swapAndSubmitOrder(
-            tokenIn,
-            amountIn,
-            swapCalldata,
-            fastTransferFee,
-            solverFeeBPS,
-            sender,
-            recipient,
-            destinationDomain,
-            timeoutTimestamp,
-            ""
-        );
-        vm.stopPrank();
-    }
-
     function testSwapAndSubmitOrderRevertsIfSolverFeeIsZero() public {
         address tokenIn = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
         uint256 amountIn = 1 ether;

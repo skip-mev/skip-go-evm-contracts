@@ -39,7 +39,6 @@ contract GoFastHandler is Ownable {
         uint64 timeoutTimestamp,
         bytes calldata destinationCalldata
     ) public payable returns (bytes32) {
-        require(executionFeeAmount != 0, "execution fee cannot be zero");
         require(solverFeeBPS != 0, "solver fee cannot be zero");
 
         uint256 swapAmountOut;
