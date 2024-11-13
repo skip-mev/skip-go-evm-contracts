@@ -1,4 +1,1 @@
-{
-    "solidity.formatter": "forge",
-    "solidity.linter": ""
-}
+{}
