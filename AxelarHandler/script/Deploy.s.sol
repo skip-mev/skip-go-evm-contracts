@@ -26,24 +26,28 @@ contract GoFastHandlerDeploy is Script {
     address public constant SWAP_ROUTER_ETHEREUM = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
     address public constant FAST_TRANSFER_GATEWAY_ETHEREUM = 0xE7935104c9670015b21c6300E5b95d2F75474CDA;
 
+    GoFastHandler public handler;
+
     function run() external {
         (address swapRouter, address fastTransferGateway) = _getInitValues(block.chainid);
 
         vm.startBroadcast();
 
         GoFastHandler handlerImpl = new GoFastHandler();
+
         ERC1967Proxy handlerProxy = new ERC1967Proxy(
             address(handlerImpl),
-            abi.encodeWithSignature("initialize(address,address)", address(this), swapRouter, fastTransferGateway)
+            abi.encodeWithSignature("initialize(address,address)", swapRouter, fastTransferGateway)
         );
-        GoFastHandler handler = GoFastHandler(payable(address(handlerProxy)));
+
+        handler = GoFastHandler(payable(address(handlerProxy)));
 
         vm.stopBroadcast();
 
         console.log("GoFastHandler deployed at: ", address(handler));
     }
 
-    function _getInitValues(uint256 chainID) internal view returns (address, address) {
+    function _getInitValues(uint256 chainID) internal pure returns (address, address) {
         if (chainID == 42161) {
             return (SWAP_ROUTER_ABRITRUM, FAST_TRANSFER_GATEWAY_ABRITRUM);
         }

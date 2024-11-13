@@ -20,8 +20,9 @@ contract GoFastHandler is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         _disableInitializers();
     }
 
-    function initialize(address _swapRouter, address _fastTransferGateway) public initializer {
+    function initialize(address _swapRouter, address _fastTransferGateway) external initializer {
         __Ownable_init();
+        __UUPSUpgradeable_init();
 
         swapRouter = ISwapRouter02(_swapRouter);
         fastTransferGateway = IFastTransferGateway(_fastTransferGateway);
