@@ -110,7 +110,7 @@ contract GoFastHandler is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             IERC20(token).safeTransferFrom(msg.sender, address(this), amountIn);
         }
 
-        IERC20(token).safeApprove(address(fastTransferGateway), amountIn);
+        IERC20(token).forceApprove(address(fastTransferGateway), amountIn);
 
         return fastTransferGateway.submitOrder(
             sender, recipient, amountIn, amountOut, destinationDomain, timeoutTimestamp, data
@@ -125,7 +125,7 @@ contract GoFastHandler is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         if (tokenIn != address(0)) {
             IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
 
-            IERC20(tokenIn).safeApprove(address(swapRouter), amountIn);
+            IERC20(tokenIn).forceApprove(address(swapRouter), amountIn);
         }
 
         (bool success,) = address(swapRouter).call{value: msg.value}(swapCalldata);
