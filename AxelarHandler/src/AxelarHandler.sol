@@ -39,6 +39,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     error Reentrancy();
     error FunctionCodeNotSupported();
 
+    event SwapSuccess(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+
     enum Commands {
         SendToken,
         SendNative,
@@ -256,6 +258,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
                 (bool ethSuccess,) = msg.sender.call{value: dust}("");
                 if (!ethSuccess) revert ETHSendFailed();
             }
+
+            emit SwapSuccess(inputToken, address(outputToken), amount, outputAmount);
         } else {
             // ERC20 Token
             if (gasPaymentAmount != msg.value) revert();
@@ -290,6 +294,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
                 // Revoke approval
                 token.safeApprove(address(swapRouter), 0);
             }
+
+            emit SwapSuccess(inputToken, address(outputToken), amount, outputAmount);
         }
 
         // Pay the gas for the GMP transfer
@@ -393,6 +399,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
                 } else {
                     _sendToken(address(tokenOut), amountOut, destination);
                 }
+
+                emit SwapSuccess(address(tokenIn), address(tokenOut), amount, amountOut);
             } catch {
                 _sendToken(token, amount, destination);
             }
@@ -407,6 +415,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
                 } else {
                     _sendToken(address(tokenOut), amountOut, destination);
                 }
+
+                emit SwapSuccess(address(tokenIn), address(tokenOut), amount, amountOut);
             } catch {
                 _sendToken(token, amount, destination);
             }
