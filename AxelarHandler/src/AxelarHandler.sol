@@ -39,6 +39,9 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     error Reentrancy();
     error FunctionCodeNotSupported();
 
+    event SwapSuccess(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+    event SwapFailed();
+
     enum Commands {
         SendToken,
         SendNative,
@@ -256,6 +259,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
                 (bool ethSuccess,) = msg.sender.call{value: dust}("");
                 if (!ethSuccess) revert ETHSendFailed();
             }
+
+            emit SwapSuccess(inputToken, address(outputToken), amount, outputAmount);
         } else {
             // ERC20 Token
             if (gasPaymentAmount != msg.value) revert();
@@ -290,6 +295,8 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
                 // Revoke approval
                 token.safeApprove(address(swapRouter), 0);
             }
+
+            emit SwapSuccess(inputToken, address(outputToken), amount, outputAmount);
         }
 
         // Pay the gas for the GMP transfer
@@ -390,11 +397,14 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             ) {
                 if (unwrapOut) {
                     _sendNative(address(tokenOut), amountOut, destination);
+                    emit SwapSuccess(address(tokenIn), address(0), amount, amountOut);
                 } else {
                     _sendToken(address(tokenOut), amountOut, destination);
+                    emit SwapSuccess(address(tokenIn), address(tokenOut), amount, amountOut);
                 }
             } catch {
                 _sendToken(token, amount, destination);
+                emit SwapFailed();
             }
         } else if (command == Commands.MultiSwap) {
             (address destination, bool unwrapOut, bytes[] memory swaps) = abi.decode(data, (address, bool, bytes[]));
@@ -404,11 +414,14 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             ) {
                 if (unwrapOut) {
                     _sendNative(address(tokenOut), amountOut, destination);
+                    emit SwapSuccess(address(tokenIn), address(0), amount, amountOut);
                 } else {
                     _sendToken(address(tokenOut), amountOut, destination);
+                    emit SwapSuccess(address(tokenIn), address(tokenOut), amount, amountOut);
                 }
             } catch {
                 _sendToken(token, amount, destination);
+                emit SwapFailed();
             }
         } else {
             revert FunctionCodeNotSupported();
