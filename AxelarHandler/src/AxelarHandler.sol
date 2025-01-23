@@ -40,6 +40,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     error FunctionCodeNotSupported();
 
     event SwapSuccess(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+    event SwapFailed();
 
     enum Commands {
         SendToken,
@@ -396,13 +397,14 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             ) {
                 if (unwrapOut) {
                     _sendNative(address(tokenOut), amountOut, destination);
+                    emit SwapSuccess(address(tokenIn), address(0), amount, amountOut);
                 } else {
                     _sendToken(address(tokenOut), amountOut, destination);
+                    emit SwapSuccess(address(tokenIn), address(tokenOut), amount, amountOut);
                 }
-
-                emit SwapSuccess(address(tokenIn), address(tokenOut), amount, amountOut);
             } catch {
                 _sendToken(token, amount, destination);
+                emit SwapFailed();
             }
         } else if (command == Commands.MultiSwap) {
             (address destination, bool unwrapOut, bytes[] memory swaps) = abi.decode(data, (address, bool, bytes[]));
@@ -412,13 +414,14 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
             ) {
                 if (unwrapOut) {
                     _sendNative(address(tokenOut), amountOut, destination);
+                    emit SwapSuccess(address(tokenIn), address(0), amount, amountOut);
                 } else {
                     _sendToken(address(tokenOut), amountOut, destination);
+                    emit SwapSuccess(address(tokenIn), address(tokenOut), amount, amountOut);
                 }
-
-                emit SwapSuccess(address(tokenIn), address(tokenOut), amount, amountOut);
             } catch {
                 _sendToken(token, amount, destination);
+                emit SwapFailed();
             }
         } else {
             revert FunctionCodeNotSupported();
