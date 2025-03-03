@@ -11,9 +11,6 @@ contract EurekaHandlerTest is Test {
     uint256 sepoliaFork;
 
     function setUp() public {
-        string memory rpcUrl = "https://eth-sepolia.g.alchemy.com/v2/iR-o8s0PPaLM7yCqrmna9ANzqvx7mF8B";
-        sepoliaFork = vm.createFork(rpcUrl);
-
         vm.selectFork(sepoliaFork);
         vm.rollFork(7824754);
     }
