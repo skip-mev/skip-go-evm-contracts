@@ -13,6 +13,8 @@ contract EurekaHandler is IEurekaHandler {
     address public lbtcVoucher;
     address public lbtc;
 
+    event Transfer(address indexed token, uint256 amount, uint256 relayFee, uint256 protocolFee);
+
     constructor(address _ics20Transfer, address _swapRouter, address _lbtcVoucher, address _lbtc) {
         ics20Transfer = _ics20Transfer;
         swapRouter = _swapRouter;
@@ -36,6 +38,8 @@ contract EurekaHandler is IEurekaHandler {
                 memo: transferParams.memo
             })
         );
+
+        emit Transfer(transferParams.token, amount, fees.relayFee, fees.protocolFee);
     }
 
     function swapAndTransfer(
@@ -66,6 +70,8 @@ contract EurekaHandler is IEurekaHandler {
                 memo: transferParams.memo
             })
         );
+
+        emit Transfer(transferParams.token, amountOutAfterFees, fees.relayFee, fees.protocolFee);
     }
 
     function lombardTransfer(uint256 amount, TransferParams memory transferParams, Fees memory fees) external {
@@ -86,6 +92,8 @@ contract EurekaHandler is IEurekaHandler {
                 memo: transferParams.memo
             })
         );
+
+        emit Transfer(lbtc, voucherAmount, fees.relayFee, fees.protocolFee);
     }
 
     function _collectFees(address token, address sender, Fees memory fees) internal {
