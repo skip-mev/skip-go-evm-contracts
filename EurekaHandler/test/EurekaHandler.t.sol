@@ -6,22 +6,17 @@ import "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {EurekaHandler, IEurekaHandler} from "../src/EurekaHandler.sol";
+import {IICS20Transfer, IICS20TransferMsgs} from "../src/interfaces/eureka/ICS20Transfer.sol";
+import {IIBCVoucher} from "../src/interfaces/lombard/IIBCVoucher.sol";
 
 contract EurekaHandlerTest is Test {
-    uint256 sepoliaFork;
-
-    function setUp() public {
-        vm.selectFork(sepoliaFork);
-        vm.rollFork(7824754);
-    }
-
     function testTransfer() public {
-        EurekaHandler handler = new EurekaHandler(
-            0xbb87C1ACc6306ad2233a4c7BBE75a1230409b358,
-            0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E,
-            address(0),
-            address(0)
-        );
+        address ics20Transfer = 0xbb87C1ACc6306ad2233a4c7BBE75a1230409b358;
+        address swapRouter = 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E;
+        address lbtcVoucher = 0x0000000000000000000000000000000000000000;
+        address lbtc = 0x0000000000000000000000000000000000000000;
+
+        EurekaHandler handler = new EurekaHandler(ics20Transfer, swapRouter, lbtcVoucher, lbtc);
 
         address token = 0xC30eDcAd074F093882D80424962415Cf61494258;
         uint256 amount = 1_000_000;
@@ -35,24 +30,54 @@ contract EurekaHandlerTest is Test {
             memo: ""
         });
 
-        IEurekaHandler.Fees memory fees = IEurekaHandler.Fees({relayFee: 100, protocolFee: 200});
+        IEurekaHandler.Fees memory fees =
+            IEurekaHandler.Fees({relayFee: 100, protocolFee: 200, quoteExpiry: uint64(block.timestamp + 100)});
 
         address alice = makeAddr("alice");
-        deal(token, alice, 100000000);
+
+        vm.mockCall(
+            token, abi.encodeWithSelector(IERC20.transferFrom.selector, alice, address(handler), 300), abi.encode(true)
+        );
+
+        vm.mockCall(
+            token,
+            abi.encodeWithSelector(IERC20.transferFrom.selector, alice, address(handler), amount),
+            abi.encode(true)
+        );
+
+        vm.mockCall(
+            token, abi.encodeWithSelector(IERC20.approve.selector, address(ics20Transfer), amount), abi.encode(true)
+        );
+
+        vm.mockCall(
+            address(ics20Transfer),
+            abi.encodeWithSelector(
+                IICS20Transfer.sendTransferWithSender.selector,
+                IICS20TransferMsgs.SendTransferMsg({
+                    denom: token,
+                    amount: amount,
+                    receiver: transferParams.recipient,
+                    sourceClient: transferParams.sourceClient,
+                    destPort: transferParams.destPort,
+                    timeoutTimestamp: transferParams.timeoutTimestamp,
+                    memo: transferParams.memo
+                }),
+                alice
+            ),
+            abi.encode(1)
+        );
 
         vm.startPrank(alice);
-        IERC20(token).approve(address(handler), amount + fees.relayFee + fees.protocolFee);
-
         handler.transfer(amount, transferParams, fees);
     }
 
     function testSwapAndTransfer() public {
-        EurekaHandler handler = new EurekaHandler(
-            0xbb87C1ACc6306ad2233a4c7BBE75a1230409b358,
-            0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E,
-            address(0),
-            address(0)
-        );
+        address ics20Transfer = 0xbb87C1ACc6306ad2233a4c7BBE75a1230409b358;
+        address swapRouter = 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E;
+        address lbtcVoucher = 0x0000000000000000000000000000000000000000;
+        address lbtc = 0x0000000000000000000000000000000000000000;
+
+        EurekaHandler handler = new EurekaHandler(ics20Transfer, swapRouter, lbtcVoucher, lbtc);
 
         address weth = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;
         address usdc = 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238;
@@ -70,24 +95,60 @@ contract EurekaHandlerTest is Test {
             memo: ""
         });
 
-        IEurekaHandler.Fees memory fees = IEurekaHandler.Fees({relayFee: 100, protocolFee: 200});
+        IEurekaHandler.Fees memory fees =
+            IEurekaHandler.Fees({relayFee: 100, protocolFee: 200, quoteExpiry: uint64(block.timestamp + 100)});
 
         address alice = makeAddr("alice");
-        deal(weth, alice, amountIn);
+
+        vm.mockCall(
+            weth,
+            abi.encodeWithSelector(IERC20.transferFrom.selector, alice, address(handler), amountIn),
+            abi.encode(true)
+        );
+
+        {
+            bytes[] memory usdcBalanceMockResponses = new bytes[](2);
+            usdcBalanceMockResponses[0] = abi.encode(0);
+            usdcBalanceMockResponses[1] = abi.encode(100000000);
+
+            vm.mockCalls(
+                usdc, abi.encodeWithSelector(IERC20.balanceOf.selector, address(handler)), usdcBalanceMockResponses
+            );
+        }
+
+        vm.mockCall(weth, abi.encodeWithSelector(IERC20.approve.selector, swapRouter, amountIn), abi.encode(true));
+
+        vm.mockCall(usdc, abi.encodeWithSelector(IERC20.approve.selector, ics20Transfer, 99999700), abi.encode(true));
+
+        vm.mockCall(
+            address(ics20Transfer),
+            abi.encodeWithSelector(
+                IICS20Transfer.sendTransferWithSender.selector,
+                IICS20TransferMsgs.SendTransferMsg({
+                    denom: usdc,
+                    amount: 99999700,
+                    receiver: transferParams.recipient,
+                    sourceClient: transferParams.sourceClient,
+                    destPort: transferParams.destPort,
+                    timeoutTimestamp: transferParams.timeoutTimestamp,
+                    memo: transferParams.memo
+                }),
+                alice
+            ),
+            abi.encode(1)
+        );
 
         vm.startPrank(alice);
-        IERC20(weth).approve(address(handler), amountIn);
-
         handler.swapAndTransfer(weth, amountIn, swapCalldata, transferParams, fees);
     }
 
     function testSwapAndTransferRevertsIfInsufficientAmountOut() public {
-        EurekaHandler handler = new EurekaHandler(
-            0xbb87C1ACc6306ad2233a4c7BBE75a1230409b358,
-            0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E,
-            address(0),
-            address(0)
-        );
+        address ics20Transfer = 0xbb87C1ACc6306ad2233a4c7BBE75a1230409b358;
+        address swapRouter = 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E;
+        address lbtcVoucher = 0x0000000000000000000000000000000000000000;
+        address lbtc = 0x0000000000000000000000000000000000000000;
+
+        EurekaHandler handler = new EurekaHandler(ics20Transfer, swapRouter, lbtcVoucher, lbtc);
 
         address weth = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;
         address usdc = 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238;
@@ -105,16 +166,98 @@ contract EurekaHandlerTest is Test {
             memo: ""
         });
 
-        IEurekaHandler.Fees memory fees = IEurekaHandler.Fees({relayFee: 100, protocolFee: 200});
+        IEurekaHandler.Fees memory fees =
+            IEurekaHandler.Fees({relayFee: 100, protocolFee: 200, quoteExpiry: uint64(block.timestamp + 100)});
 
         address alice = makeAddr("alice");
-        deal(weth, alice, amountIn);
+
+        vm.mockCall(
+            weth,
+            abi.encodeWithSelector(IERC20.transferFrom.selector, alice, address(handler), amountIn),
+            abi.encode(true)
+        );
+
+        bytes[] memory usdcBalanceMockResponses = new bytes[](2);
+        usdcBalanceMockResponses[0] = abi.encode(0);
+        usdcBalanceMockResponses[1] = abi.encode(200);
+
+        vm.mockCalls(
+            usdc, abi.encodeWithSelector(IERC20.balanceOf.selector, address(handler)), usdcBalanceMockResponses
+        );
+
+        vm.mockCall(weth, abi.encodeWithSelector(IERC20.approve.selector, swapRouter, amountIn), abi.encode(true));
 
         vm.startPrank(alice);
-        IERC20(weth).approve(address(handler), amountIn);
-
         vm.expectRevert("Insufficient amount out to cover fees");
         handler.swapAndTransfer(weth, amountIn, swapCalldata, transferParams, fees);
+    }
+
+    function testLombardTransfer() public {
+        address ics20Transfer = 0xbb87C1ACc6306ad2233a4c7BBE75a1230409b358;
+        address swapRouter = 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E;
+        address lbtcVoucher = makeAddr("lbtcVoucher");
+        address lbtc = makeAddr("lbtc");
+
+        EurekaHandler handler = new EurekaHandler(ics20Transfer, swapRouter, lbtcVoucher, lbtc);
+
+        IEurekaHandler.TransferParams memory transferParams = IEurekaHandler.TransferParams({
+            token: lbtcVoucher,
+            recipient: "cosmos1234",
+            sourceClient: "client-0",
+            destPort: "transfer",
+            timeoutTimestamp: uint64(block.timestamp + 100),
+            memo: ""
+        });
+
+        IEurekaHandler.Fees memory fees =
+            IEurekaHandler.Fees({relayFee: 100, protocolFee: 200, quoteExpiry: uint64(block.timestamp + 100)});
+
+        address alice = makeAddr("alice");
+
+        uint256 amountIn = 100000000;
+
+        vm.mockCall(
+            lbtc, abi.encodeWithSelector(IERC20.transferFrom.selector, alice, address(handler), 300), abi.encode(true)
+        );
+
+        vm.mockCall(
+            lbtc,
+            abi.encodeWithSelector(IERC20.transferFrom.selector, alice, address(handler), amountIn),
+            abi.encode(true)
+        );
+
+        vm.mockCall(
+            lbtc, abi.encodeWithSelector(IERC20.approve.selector, address(lbtcVoucher), amountIn), abi.encode(true)
+        );
+
+        vm.mockCall(lbtcVoucher, abi.encodeWithSelector(IIBCVoucher.get.selector, amountIn), abi.encode(99000000));
+
+        vm.mockCall(
+            lbtcVoucher,
+            abi.encodeWithSelector(IERC20.approve.selector, address(ics20Transfer), 99000000),
+            abi.encode(true)
+        );
+
+        vm.mockCall(
+            address(ics20Transfer),
+            abi.encodeWithSelector(
+                IICS20Transfer.sendTransferWithSender.selector,
+                IICS20TransferMsgs.SendTransferMsg({
+                    denom: lbtcVoucher,
+                    amount: 99000000,
+                    receiver: transferParams.recipient,
+                    sourceClient: transferParams.sourceClient,
+                    destPort: transferParams.destPort,
+                    timeoutTimestamp: transferParams.timeoutTimestamp,
+                    memo: transferParams.memo
+                }),
+                alice
+            ),
+            abi.encode(1)
+        );
+
+        vm.startPrank(alice);
+        handler.lombardTransfer(amountIn, transferParams, fees);
     }
 
     function _encodeSwapExactInputCalldata(

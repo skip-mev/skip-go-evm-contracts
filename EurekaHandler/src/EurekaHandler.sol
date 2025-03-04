@@ -23,6 +23,8 @@ contract EurekaHandler is IEurekaHandler {
     }
 
     function transfer(uint256 amount, TransferParams memory transferParams, Fees memory fees) external {
+        require(block.timestamp < fees.quoteExpiry, "Fee quote expired");
+
         _collectFees(transferParams.token, msg.sender, fees);
 
         IERC20(transferParams.token).transferFrom(msg.sender, address(this), amount);
@@ -49,6 +51,8 @@ contract EurekaHandler is IEurekaHandler {
         TransferParams memory transferParams,
         Fees memory fees
     ) external {
+        require(block.timestamp < fees.quoteExpiry, "Fee quote expired");
+
         IERC20(swapInputToken).transferFrom(msg.sender, address(this), swapInputAmount);
 
         uint256 amountOut = _swap(swapInputToken, transferParams.token, swapInputAmount, swapCalldata);
@@ -75,9 +79,13 @@ contract EurekaHandler is IEurekaHandler {
     }
 
     function lombardTransfer(uint256 amount, TransferParams memory transferParams, Fees memory fees) external {
+        require(block.timestamp < fees.quoteExpiry, "Fee quote expired");
+
         _collectFees(lbtc, msg.sender, fees);
 
         IERC20(lbtc).transferFrom(msg.sender, address(this), amount);
+
+        IERC20(lbtc).approve(lbtcVoucher, amount);
 
         uint256 voucherAmount = IIBCVoucher(lbtcVoucher).get(amount);
 
@@ -97,10 +105,6 @@ contract EurekaHandler is IEurekaHandler {
     }
 
     function _collectFees(address token, address sender, Fees memory fees) internal {
-        if (block.timestamp > fees.quoteExpiry) {
-            revert("Fee quote expired");
-        }
-
         uint256 totalFees = _totalFees(fees);
 
         IERC20(token).transferFrom(sender, address(this), totalFees);
