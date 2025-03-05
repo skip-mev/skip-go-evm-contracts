@@ -15,10 +15,9 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
     address public swapRouter;
     address public lbtcVoucher;
     address public lbtc;
-    address public protocolFeeRecipient;
     address public relayFeeRecipient;
 
-    event Transfer(address indexed token, uint256 amount, uint256 relayFee, uint256 protocolFee);
+    event Transfer(address indexed token, uint256 amount, uint256 relayFee);
 
     constructor() {
         _disableInitializers();
@@ -30,7 +29,6 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         address _swapRouter,
         address _lbtcVoucher,
         address _lbtc,
-        address _protocolFeeRecipient,
         address _relayFeeRecipient
     ) external initializer {
         __UUPSUpgradeable_init();
@@ -40,7 +38,6 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         swapRouter = _swapRouter;
         lbtcVoucher = _lbtcVoucher;
         lbtc = _lbtc;
-        protocolFeeRecipient = _protocolFeeRecipient;
         relayFeeRecipient = _relayFeeRecipient;
     }
 
@@ -48,7 +45,6 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         require(block.timestamp < fees.quoteExpiry, "Fee quote expired");
 
         // Collect fees
-        IERC20(transferParams.token).transferFrom(msg.sender, protocolFeeRecipient, fees.protocolFee);
         IERC20(transferParams.token).transferFrom(msg.sender, relayFeeRecipient, fees.relayFee);
 
         IERC20(transferParams.token).transferFrom(msg.sender, address(this), amount);
@@ -65,7 +61,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
             })
         );
 
-        emit Transfer(transferParams.token, amount, fees.relayFee, fees.protocolFee);
+        emit Transfer(transferParams.token, amount, fees.relayFee);
     }
 
     function swapAndTransfer(
@@ -81,12 +77,11 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
 
         uint256 amountOut = _swap(swapInputToken, transferParams.token, swapInputAmount, swapCalldata);
 
-        if (amountOut < _totalFees(fees)) {
+        if (amountOut <= _totalFees(fees)) {
             revert("Insufficient amount out to cover fees");
         }
 
         // Collect fees
-        IERC20(transferParams.token).transferFrom(address(this), protocolFeeRecipient, fees.protocolFee);
         IERC20(transferParams.token).transferFrom(address(this), relayFeeRecipient, fees.relayFee);
 
         uint256 amountOutAfterFees = amountOut - _totalFees(fees);
@@ -103,14 +98,13 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
             })
         );
 
-        emit Transfer(transferParams.token, amountOutAfterFees, fees.relayFee, fees.protocolFee);
+        emit Transfer(transferParams.token, amountOutAfterFees, fees.relayFee);
     }
 
     function lombardTransfer(uint256 amount, TransferParams memory transferParams, Fees memory fees) external {
         require(block.timestamp < fees.quoteExpiry, "Fee quote expired");
 
         // Collect fees
-        IERC20(lbtc).transferFrom(msg.sender, protocolFeeRecipient, fees.protocolFee);
         IERC20(lbtc).transferFrom(msg.sender, relayFeeRecipient, fees.relayFee);
 
         IERC20(lbtc).transferFrom(msg.sender, address(this), amount);
@@ -131,7 +125,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
             })
         );
 
-        emit Transfer(lbtc, voucherAmount, fees.relayFee, fees.protocolFee);
+        emit Transfer(lbtc, voucherAmount, fees.relayFee);
     }
 
     function _sendTransfer(IICS20TransferMsgs.SendTransferMsg memory transferMsg) internal {
@@ -162,16 +156,12 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
     }
 
     function _totalFees(Fees memory fees) internal pure returns (uint256) {
-        return fees.relayFee + fees.protocolFee;
+        return fees.relayFee;
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function setRelayFeeRecipient(address newRelayFeeRecipient) external onlyOwner {
         relayFeeRecipient = newRelayFeeRecipient;
-    }
-
-    function setProtocolFeeRecipient(address newProtocolFeeRecipient) external onlyOwner {
-        protocolFeeRecipient = newProtocolFeeRecipient;
     }
 }

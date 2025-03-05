@@ -24,13 +24,12 @@ contract EurekaHandlerTest is Test {
         ERC1967Proxy handlerProxy = new ERC1967Proxy(
             address(handlerImpl),
             abi.encodeWithSignature(
-                "initialize(address,address,address,address,address,address,address)",
+                "initialize(address,address,address,address,address,address)",
                 address(this),
                 ics20Transfer,
                 swapRouter,
                 lbtcVoucher,
                 lbtc,
-                protocolFeeRecipient,
                 relayFeeRecipient
             )
         );
@@ -51,15 +50,9 @@ contract EurekaHandlerTest is Test {
         });
 
         IEurekaHandler.Fees memory fees =
-            IEurekaHandler.Fees({relayFee: 100, protocolFee: 200, quoteExpiry: uint64(block.timestamp + 100)});
+            IEurekaHandler.Fees({relayFee: 100, quoteExpiry: uint64(block.timestamp + 100)});
 
         address alice = makeAddr("alice");
-
-        vm.mockCall(
-            token,
-            abi.encodeWithSelector(IERC20.transferFrom.selector, alice, protocolFeeRecipient, fees.protocolFee),
-            abi.encode(true)
-        );
 
         vm.mockCall(
             token,
@@ -121,21 +114,13 @@ contract EurekaHandlerTest is Test {
         });
 
         IEurekaHandler.Fees memory fees =
-            IEurekaHandler.Fees({relayFee: 100, protocolFee: 200, quoteExpiry: uint64(block.timestamp + 100)});
+            IEurekaHandler.Fees({relayFee: 100, quoteExpiry: uint64(block.timestamp + 100)});
 
         address alice = makeAddr("alice");
 
         vm.mockCall(
             weth,
             abi.encodeWithSelector(IERC20.transferFrom.selector, alice, address(handler), amountIn),
-            abi.encode(true)
-        );
-
-        vm.mockCall(
-            usdc,
-            abi.encodeWithSelector(
-                IERC20.transferFrom.selector, address(handler), protocolFeeRecipient, fees.protocolFee
-            ),
             abi.encode(true)
         );
 
@@ -157,7 +142,7 @@ contract EurekaHandlerTest is Test {
 
         vm.mockCall(weth, abi.encodeWithSelector(IERC20.approve.selector, swapRouter, amountIn), abi.encode(true));
 
-        vm.mockCall(usdc, abi.encodeWithSelector(IERC20.approve.selector, ics20Transfer, 99999700), abi.encode(true));
+        vm.mockCall(usdc, abi.encodeWithSelector(IERC20.approve.selector, ics20Transfer, 99999900), abi.encode(true));
 
         vm.mockCall(
             address(ics20Transfer),
@@ -165,7 +150,7 @@ contract EurekaHandlerTest is Test {
                 IICS20Transfer.sendTransferWithSender.selector,
                 IICS20TransferMsgs.SendTransferMsg({
                     denom: usdc,
-                    amount: 99999700,
+                    amount: 99999900,
                     receiver: transferParams.recipient,
                     sourceClient: transferParams.sourceClient,
                     destPort: transferParams.destPort,
@@ -199,7 +184,7 @@ contract EurekaHandlerTest is Test {
         });
 
         IEurekaHandler.Fees memory fees =
-            IEurekaHandler.Fees({relayFee: 100, protocolFee: 200, quoteExpiry: uint64(block.timestamp + 100)});
+            IEurekaHandler.Fees({relayFee: 100, quoteExpiry: uint64(block.timestamp + 100)});
 
         address alice = makeAddr("alice");
 
@@ -211,7 +196,7 @@ contract EurekaHandlerTest is Test {
 
         bytes[] memory usdcBalanceMockResponses = new bytes[](2);
         usdcBalanceMockResponses[0] = abi.encode(0);
-        usdcBalanceMockResponses[1] = abi.encode(200);
+        usdcBalanceMockResponses[1] = abi.encode(50);
 
         vm.mockCalls(
             usdc, abi.encodeWithSelector(IERC20.balanceOf.selector, address(handler)), usdcBalanceMockResponses
@@ -235,7 +220,7 @@ contract EurekaHandlerTest is Test {
         });
 
         IEurekaHandler.Fees memory fees =
-            IEurekaHandler.Fees({relayFee: 100, protocolFee: 200, quoteExpiry: uint64(block.timestamp + 100)});
+            IEurekaHandler.Fees({relayFee: 100, quoteExpiry: uint64(block.timestamp + 100)});
 
         address alice = makeAddr("alice");
 
@@ -243,12 +228,6 @@ contract EurekaHandlerTest is Test {
 
         vm.mockCall(
             lbtc, abi.encodeWithSelector(IERC20.transferFrom.selector, alice, address(handler), 300), abi.encode(true)
-        );
-
-        vm.mockCall(
-            lbtc,
-            abi.encodeWithSelector(IERC20.transferFrom.selector, alice, protocolFeeRecipient, fees.protocolFee),
-            abi.encode(true)
         );
 
         vm.mockCall(

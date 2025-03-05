@@ -13,7 +13,6 @@ interface IEurekaHandler {
 
     struct Fees {
         uint256 relayFee;
-        uint256 protocolFee;
         uint64 quoteExpiry;
     }
 
