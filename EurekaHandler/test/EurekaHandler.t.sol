@@ -246,7 +246,7 @@ contract EurekaHandlerTest is Test {
             lbtc, abi.encodeWithSelector(IERC20.approve.selector, address(lbtcVoucher), amountIn), abi.encode(true)
         );
 
-        vm.mockCall(lbtcVoucher, abi.encodeWithSelector(IIBCVoucher.get.selector, amountIn), abi.encode(99000000));
+        vm.mockCall(lbtcVoucher, abi.encodeWithSelector(IIBCVoucher.wrap.selector, amountIn), abi.encode(99000000));
 
         vm.mockCall(
             lbtcVoucher,

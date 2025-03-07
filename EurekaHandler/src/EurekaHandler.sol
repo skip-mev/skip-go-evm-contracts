@@ -111,7 +111,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
 
         IERC20(lbtc).approve(lbtcVoucher, amount);
 
-        uint256 voucherAmount = IIBCVoucher(lbtcVoucher).get(amount);
+        uint256 voucherAmount = IIBCVoucher(lbtcVoucher).wrap(amount);
 
         _sendTransfer(
             IICS20TransferMsgs.SendTransferMsg({
