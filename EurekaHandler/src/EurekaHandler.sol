@@ -15,7 +15,6 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
     address public swapRouter;
     address public lbtcVoucher;
     address public lbtc;
-    address public relayFeeRecipient;
 
     event Transfer(address indexed token, uint256 amount, uint256 relayFee);
 
@@ -28,8 +27,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         address _ics20Transfer,
         address _swapRouter,
         address _lbtcVoucher,
-        address _lbtc,
-        address _relayFeeRecipient
+        address _lbtc
     ) external initializer {
         __UUPSUpgradeable_init();
         __Ownable_init(_owner);
@@ -38,14 +36,15 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         swapRouter = _swapRouter;
         lbtcVoucher = _lbtcVoucher;
         lbtc = _lbtc;
-        relayFeeRecipient = _relayFeeRecipient;
     }
 
     function transfer(uint256 amount, TransferParams memory transferParams, Fees memory fees) external {
         require(block.timestamp < fees.quoteExpiry, "Fee quote expired");
 
         // Collect fees
-        IERC20(transferParams.token).transferFrom(msg.sender, relayFeeRecipient, fees.relayFee);
+        if (fees.relayFee > 0) {
+            IERC20(transferParams.token).transferFrom(msg.sender, fees.relayFeeRecipient, fees.relayFee);
+        }
 
         IERC20(transferParams.token).transferFrom(msg.sender, address(this), amount);
 
@@ -82,7 +81,9 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         }
 
         // Collect fees
-        IERC20(transferParams.token).transferFrom(address(this), relayFeeRecipient, fees.relayFee);
+        if (fees.relayFee > 0) {
+            IERC20(transferParams.token).transferFrom(address(this), fees.relayFeeRecipient, fees.relayFee);
+        }
 
         uint256 amountOutAfterFees = amountOut - _totalFees(fees);
 
@@ -105,7 +106,9 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         require(block.timestamp < fees.quoteExpiry, "Fee quote expired");
 
         // Collect fees
-        IERC20(lbtc).transferFrom(msg.sender, relayFeeRecipient, fees.relayFee);
+        if (fees.relayFee > 0) {
+            IERC20(lbtc).transferFrom(msg.sender, fees.relayFeeRecipient, fees.relayFee);
+        }
 
         IERC20(lbtc).transferFrom(msg.sender, address(this), amount);
 
@@ -126,6 +129,16 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         );
 
         emit Transfer(lbtc, voucherAmount, fees.relayFee);
+    }
+
+    function lombardSpend(uint256 amount) external {
+        uint256 lbtcBalanceBefore = IERC20(lbtc).balanceOf(address(this));
+
+        IIBCVoucher(lbtcVoucher).spend(amount);
+
+        uint256 lbtcBalanceAfter = IERC20(lbtc).balanceOf(address(this));
+
+        IERC20(lbtc).transfer(msg.sender, lbtcBalanceAfter - lbtcBalanceBefore);
     }
 
     function _sendTransfer(IICS20TransferMsgs.SendTransferMsg memory transferMsg) internal {
@@ -160,8 +173,4 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
-
-    function setRelayFeeRecipient(address newRelayFeeRecipient) external onlyOwner {
-        relayFeeRecipient = newRelayFeeRecipient;
-    }
 }

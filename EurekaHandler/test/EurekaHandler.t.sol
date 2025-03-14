@@ -14,7 +14,6 @@ contract EurekaHandlerTest is Test {
     address swapRouter = 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E;
     address lbtcVoucher = makeAddr("lbtcVoucher");
     address lbtc = makeAddr("lbtc");
-    address protocolFeeRecipient = makeAddr("protocolFeeRecipient");
     address relayFeeRecipient = makeAddr("relayFeeRecipient");
 
     EurekaHandler handler;
@@ -24,13 +23,12 @@ contract EurekaHandlerTest is Test {
         ERC1967Proxy handlerProxy = new ERC1967Proxy(
             address(handlerImpl),
             abi.encodeWithSignature(
-                "initialize(address,address,address,address,address,address)",
+                "initialize(address,address,address,address,address)",
                 address(this),
                 ics20Transfer,
                 swapRouter,
                 lbtcVoucher,
-                lbtc,
-                relayFeeRecipient
+                lbtc
             )
         );
         handler = EurekaHandler(payable(address(handlerProxy)));
@@ -49,8 +47,11 @@ contract EurekaHandlerTest is Test {
             memo: ""
         });
 
-        IEurekaHandler.Fees memory fees =
-            IEurekaHandler.Fees({relayFee: 100, quoteExpiry: uint64(block.timestamp + 100)});
+        IEurekaHandler.Fees memory fees = IEurekaHandler.Fees({
+            relayFee: 100,
+            relayFeeRecipient: relayFeeRecipient,
+            quoteExpiry: uint64(block.timestamp + 100)
+        });
 
         address alice = makeAddr("alice");
 
@@ -113,8 +114,11 @@ contract EurekaHandlerTest is Test {
             memo: ""
         });
 
-        IEurekaHandler.Fees memory fees =
-            IEurekaHandler.Fees({relayFee: 100, quoteExpiry: uint64(block.timestamp + 100)});
+        IEurekaHandler.Fees memory fees = IEurekaHandler.Fees({
+            relayFee: 100,
+            relayFeeRecipient: relayFeeRecipient,
+            quoteExpiry: uint64(block.timestamp + 100)
+        });
 
         address alice = makeAddr("alice");
 
@@ -183,8 +187,11 @@ contract EurekaHandlerTest is Test {
             memo: ""
         });
 
-        IEurekaHandler.Fees memory fees =
-            IEurekaHandler.Fees({relayFee: 100, quoteExpiry: uint64(block.timestamp + 100)});
+        IEurekaHandler.Fees memory fees = IEurekaHandler.Fees({
+            relayFee: 100,
+            relayFeeRecipient: relayFeeRecipient,
+            quoteExpiry: uint64(block.timestamp + 100)
+        });
 
         address alice = makeAddr("alice");
 
@@ -219,8 +226,11 @@ contract EurekaHandlerTest is Test {
             memo: ""
         });
 
-        IEurekaHandler.Fees memory fees =
-            IEurekaHandler.Fees({relayFee: 100, quoteExpiry: uint64(block.timestamp + 100)});
+        IEurekaHandler.Fees memory fees = IEurekaHandler.Fees({
+            relayFee: 100,
+            relayFeeRecipient: relayFeeRecipient,
+            quoteExpiry: uint64(block.timestamp + 100)
+        });
 
         address alice = makeAddr("alice");
 
