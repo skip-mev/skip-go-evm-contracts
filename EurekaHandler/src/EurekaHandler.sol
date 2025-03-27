@@ -132,11 +132,15 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
     }
 
     function lombardSpend(uint256 amount) external {
+        uint256 lbtcBalanceBefore = IERC20(lbtc).balanceOf(address(this));
+
         IERC20(lbtcVoucher).transferFrom(msg.sender, address(this), amount);
 
         IIBCVoucher(lbtcVoucher).spend(amount);
 
-        IERC20(lbtc).transfer(msg.sender, amount);
+        uint256 lbtcBalanceAfter = IERC20(lbtc).balanceOf(address(this));
+
+        IERC20(lbtc).transfer(msg.sender, lbtcBalanceAfter - lbtcBalanceBefore);
     }
 
     function _sendTransfer(IICS20TransferMsgs.SendTransferMsg memory transferMsg) internal {

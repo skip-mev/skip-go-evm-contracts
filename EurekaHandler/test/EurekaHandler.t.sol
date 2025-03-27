@@ -301,21 +301,6 @@ contract EurekaHandlerTest is Test {
     }
 
     function testLombardSpend() public {
-        IEurekaHandler.TransferParams memory transferParams = IEurekaHandler.TransferParams({
-            token: lbtcVoucher,
-            recipient: "cosmos1234",
-            sourceClient: "client-0",
-            destPort: "transfer",
-            timeoutTimestamp: uint64(block.timestamp + 100),
-            memo: ""
-        });
-
-        IEurekaHandler.Fees memory fees = IEurekaHandler.Fees({
-            relayFee: 100,
-            relayFeeRecipient: relayFeeRecipient,
-            quoteExpiry: uint64(block.timestamp + 100)
-        });
-
         address alice = makeAddr("alice");
 
         uint256 amountIn = 100000000;
@@ -337,6 +322,16 @@ contract EurekaHandlerTest is Test {
             abi.encodeWithSelector(IERC20.transfer.selector, alice, amountIn),
             abi.encode(true)
         );
+
+        {
+            bytes[] memory lbtcBalanceMockResponses = new bytes[](2);
+            lbtcBalanceMockResponses[0] = abi.encode(100);
+            lbtcBalanceMockResponses[1] = abi.encode(100 + amountIn);
+
+            vm.mockCalls(
+                lbtc, abi.encodeWithSelector(IERC20.balanceOf.selector, address(handler)), lbtcBalanceMockResponses
+            );
+        }
 
         vm.startPrank(alice);
         handler.lombardSpend(amountIn);
