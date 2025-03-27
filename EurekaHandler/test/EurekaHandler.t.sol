@@ -299,4 +299,46 @@ contract EurekaHandlerTest is Test {
             bytes4(0x04e45aaf), tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, sqrtPriceLimitX96
         );
     }
+
+    function testLombardSpend() public {
+        IEurekaHandler.TransferParams memory transferParams = IEurekaHandler.TransferParams({
+            token: lbtcVoucher,
+            recipient: "cosmos1234",
+            sourceClient: "client-0",
+            destPort: "transfer",
+            timeoutTimestamp: uint64(block.timestamp + 100),
+            memo: ""
+        });
+
+        IEurekaHandler.Fees memory fees = IEurekaHandler.Fees({
+            relayFee: 100,
+            relayFeeRecipient: relayFeeRecipient,
+            quoteExpiry: uint64(block.timestamp + 100)
+        });
+
+        address alice = makeAddr("alice");
+
+        uint256 amountIn = 100000000;
+
+        vm.mockCall(
+            lbtcVoucher,
+            abi.encodeWithSelector(IERC20.transferFrom.selector, alice, address(handler), amountIn),
+            abi.encode(true)
+        );
+
+        vm.mockCall(
+            lbtcVoucher, abi.encodeWithSelector(IERC20.approve.selector, address(lbtcVoucher), amountIn), abi.encode(true)
+        );
+
+        vm.mockCall(lbtcVoucher, abi.encodeWithSelector(IIBCVoucher.spend.selector, amountIn), abi.encode(amountIn));
+
+        vm.mockCall(
+            lbtc,
+            abi.encodeWithSelector(IERC20.transfer.selector, alice, amountIn),
+            abi.encode(true)
+        );
+
+        vm.startPrank(alice);
+        handler.lombardSpend(amountIn);
+    }
 }
