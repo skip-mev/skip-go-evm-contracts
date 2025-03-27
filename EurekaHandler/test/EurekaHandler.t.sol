@@ -299,4 +299,41 @@ contract EurekaHandlerTest is Test {
             bytes4(0x04e45aaf), tokenIn, tokenOut, fee, recipient, amountIn, amountOutMinimum, sqrtPriceLimitX96
         );
     }
+
+    function testLombardSpend() public {
+        address alice = makeAddr("alice");
+
+        uint256 amountIn = 100000000;
+
+        vm.mockCall(
+            lbtcVoucher,
+            abi.encodeWithSelector(IERC20.transferFrom.selector, alice, address(handler), amountIn),
+            abi.encode(true)
+        );
+
+        vm.mockCall(
+            lbtcVoucher, abi.encodeWithSelector(IERC20.approve.selector, address(lbtcVoucher), amountIn), abi.encode(true)
+        );
+
+        vm.mockCall(lbtcVoucher, abi.encodeWithSelector(IIBCVoucher.spend.selector, amountIn), abi.encode(amountIn));
+
+        vm.mockCall(
+            lbtc,
+            abi.encodeWithSelector(IERC20.transfer.selector, alice, amountIn),
+            abi.encode(true)
+        );
+
+        {
+            bytes[] memory lbtcBalanceMockResponses = new bytes[](2);
+            lbtcBalanceMockResponses[0] = abi.encode(100);
+            lbtcBalanceMockResponses[1] = abi.encode(100 + amountIn);
+
+            vm.mockCalls(
+                lbtc, abi.encodeWithSelector(IERC20.balanceOf.selector, address(handler)), lbtcBalanceMockResponses
+            );
+        }
+
+        vm.startPrank(alice);
+        handler.lombardSpend(amountIn);
+    }
 }

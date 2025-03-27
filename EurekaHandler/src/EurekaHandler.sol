@@ -16,7 +16,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
     address public lbtcVoucher;
     address public lbtc;
 
-    event Transfer(address indexed token, uint256 amount, uint256 relayFee);
+    event EurekaTransfer(address indexed token, uint256 amount, uint256 relayFee, address relayFeeRecipient);
 
     constructor() {
         _disableInitializers();
@@ -60,7 +60,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
             })
         );
 
-        emit Transfer(transferParams.token, amount, fees.relayFee);
+        emit EurekaTransfer(transferParams.token, amount, fees.relayFee, fees.relayFeeRecipient);
     }
 
     function swapAndTransfer(
@@ -99,7 +99,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
             })
         );
 
-        emit Transfer(transferParams.token, amountOutAfterFees, fees.relayFee);
+        emit EurekaTransfer(transferParams.token, amountOutAfterFees, fees.relayFee, fees.relayFeeRecipient);
     }
 
     function lombardTransfer(uint256 amount, TransferParams memory transferParams, Fees memory fees) external {
@@ -128,11 +128,13 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
             })
         );
 
-        emit Transfer(lbtc, voucherAmount, fees.relayFee);
+        emit EurekaTransfer(lbtc, voucherAmount, fees.relayFee, fees.relayFeeRecipient);
     }
 
     function lombardSpend(uint256 amount) external {
         uint256 lbtcBalanceBefore = IERC20(lbtc).balanceOf(address(this));
+
+        IERC20(lbtcVoucher).transferFrom(msg.sender, address(this), amount);
 
         IIBCVoucher(lbtcVoucher).spend(amount);
 
