@@ -27,5 +27,10 @@ interface IEurekaHandler {
         Fees memory fees
     ) external;
 
-    function lombardTransfer(uint256 amount, TransferParams memory transferParams, Fees memory fees) external;
+    function lombardTransfer(
+        uint256 amount,
+        uint256 minAmountOut,
+        TransferParams memory transferParams,
+        Fees memory fees
+    ) external;
 }

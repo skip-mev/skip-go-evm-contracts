@@ -102,7 +102,12 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         emit EurekaTransfer(transferParams.token, amountOutAfterFees, fees.relayFee, fees.relayFeeRecipient);
     }
 
-    function lombardTransfer(uint256 amount, TransferParams memory transferParams, Fees memory fees) external {
+    function lombardTransfer(
+        uint256 amount,
+        uint256 minAmountOut,
+        TransferParams memory transferParams,
+        Fees memory fees
+    ) external {
         require(block.timestamp < fees.quoteExpiry, "Fee quote expired");
 
         // Collect fees
@@ -114,7 +119,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
 
         IERC20(lbtc).approve(lbtcVoucher, amount);
 
-        uint256 voucherAmount = IIBCVoucher(lbtcVoucher).wrap(amount);
+        uint256 voucherAmount = IIBCVoucher(lbtcVoucher).wrap(amount, minAmountOut);
 
         _sendTransfer(
             IICS20TransferMsgs.SendTransferMsg({
