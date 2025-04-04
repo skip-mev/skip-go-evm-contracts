@@ -256,7 +256,9 @@ contract EurekaHandlerTest is Test {
             lbtc, abi.encodeWithSelector(IERC20.approve.selector, address(lbtcVoucher), amountIn), abi.encode(true)
         );
 
-        vm.mockCall(lbtcVoucher, abi.encodeWithSelector(IIBCVoucher.wrap.selector, amountIn), abi.encode(99000000));
+        vm.mockCall(
+            lbtcVoucher, abi.encodeWithSelector(IIBCVoucher.wrap.selector, amountIn, 99000000), abi.encode(99000000)
+        );
 
         vm.mockCall(
             lbtcVoucher,
@@ -283,7 +285,7 @@ contract EurekaHandlerTest is Test {
         );
 
         vm.startPrank(alice);
-        handler.lombardTransfer(amountIn, transferParams, fees);
+        handler.lombardTransfer(amountIn, 99000000, transferParams, fees);
     }
 
     function _encodeSwapExactInputCalldata(
@@ -312,16 +314,14 @@ contract EurekaHandlerTest is Test {
         );
 
         vm.mockCall(
-            lbtcVoucher, abi.encodeWithSelector(IERC20.approve.selector, address(lbtcVoucher), amountIn), abi.encode(true)
+            lbtcVoucher,
+            abi.encodeWithSelector(IERC20.approve.selector, address(lbtcVoucher), amountIn),
+            abi.encode(true)
         );
 
         vm.mockCall(lbtcVoucher, abi.encodeWithSelector(IIBCVoucher.spend.selector, amountIn), abi.encode(amountIn));
 
-        vm.mockCall(
-            lbtc,
-            abi.encodeWithSelector(IERC20.transfer.selector, alice, amountIn),
-            abi.encode(true)
-        );
+        vm.mockCall(lbtc, abi.encodeWithSelector(IERC20.transfer.selector, alice, amountIn), abi.encode(true));
 
         {
             bytes[] memory lbtcBalanceMockResponses = new bytes[](2);
