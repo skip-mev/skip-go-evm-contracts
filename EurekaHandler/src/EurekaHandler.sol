@@ -133,7 +133,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
             })
         );
 
-        emit EurekaTransfer(lbtc, voucherAmount, fees.relayFee, fees.relayFeeRecipient);
+        emit EurekaTransfer(lbtcVoucher, voucherAmount, fees.relayFee, fees.relayFeeRecipient);
     }
 
     function lombardSpend(uint256 amount) external {
