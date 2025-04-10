@@ -72,12 +72,20 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         bytes memory swapCalldata,
         TransferParams memory transferParams,
         Fees memory fees
-    ) external {
+    ) external payable {
         require(block.timestamp < fees.quoteExpiry, "Fee quote expired");
 
-        IERC20(swapInputToken).safeTransferFrom(msg.sender, address(this), swapInputAmount);
+        uint256 amountOut;
+        if (swapInputToken == address(0)) {
+            require(msg.value == swapInputAmount, "Insufficient native token");
 
-        uint256 amountOut = _swap(swapInputToken, transferParams.token, swapInputAmount, swapCalldata);
+            amountOut = _swapNative(transferParams.token, swapInputAmount, swapCalldata);
+        } else {
+            IERC20(swapInputToken).safeTransferFrom(msg.sender, address(this), swapInputAmount);
+
+            amountOut = _swap(swapInputToken, transferParams.token, swapInputAmount, swapCalldata);
+        }
+
 
         if (amountOut <= _totalFees(fees)) {
             revert("Insufficient amount out to cover fees");
@@ -166,6 +174,25 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         IERC20(tokenIn).approve(swapRouter, amountIn);
 
         (bool success,) = swapRouter.call(swapCalldata);
+        if (!success) {
+            assembly {
+                returndatacopy(0, 0, returndatasize())
+                revert(0, returndatasize())
+            }
+        }
+
+        amountOut = IERC20(tokenOut).balanceOf(address(this)) - tokenOutBalanceBefore;
+
+        return amountOut;
+    }
+
+    function _swapNative(address tokenOut, uint256 amountIn, bytes memory swapCalldata)
+        internal
+        returns (uint256 amountOut)
+    {
+        uint256 tokenOutBalanceBefore = IERC20(tokenOut).balanceOf(address(this));
+
+        (bool success,) = swapRouter.call{value: amountIn}(swapCalldata);
         if (!success) {
             assembly {
                 returndatacopy(0, 0, returndatasize())
