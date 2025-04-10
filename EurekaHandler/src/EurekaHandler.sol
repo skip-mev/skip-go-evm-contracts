@@ -82,7 +82,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
 
         // Collect fees
         if (fees.relayFee > 0) {
-            IERC20(transferParams.token).transferFrom(address(this), fees.relayFeeRecipient, fees.relayFee);
+            IERC20(transferParams.token).transfer(fees.relayFeeRecipient, fees.relayFee);
         }
 
         uint256 amountOutAfterFees = amountOut - _totalFees(fees);

@@ -15,7 +15,7 @@ contract DeploymentScript is Script {
 
         vm.startBroadcast();
 
-        EurekaHandler handler = EurekaHandler(0x92470162374A6D185758982356833d1aFfFd3b03);
+        EurekaHandler handler = EurekaHandler(0x46914a36365EC16600D81880903f3e95dcea3e5D);
 
         EurekaHandler newHandlerImplementation = new EurekaHandler();
 
