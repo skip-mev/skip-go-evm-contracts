@@ -2,6 +2,7 @@
 pragma solidity ^0.8.18;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -11,6 +12,8 @@ import {IIBCVoucher} from "./interfaces/lombard/IIBCVoucher.sol";
 import {IEurekaHandler} from "./interfaces/IEurekaHandler.sol";
 
 contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, OwnableUpgradeable {
+    using SafeERC20 for IERC20;
+
     address public ics20Transfer;
     address public swapRouter;
     address public lbtcVoucher;
@@ -43,10 +46,10 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
 
         // Collect fees
         if (fees.relayFee > 0) {
-            IERC20(transferParams.token).transferFrom(msg.sender, fees.relayFeeRecipient, fees.relayFee);
+            IERC20(transferParams.token).safeTransferFrom(msg.sender, fees.relayFeeRecipient, fees.relayFee);
         }
 
-        IERC20(transferParams.token).transferFrom(msg.sender, address(this), amount);
+        IERC20(transferParams.token).safeTransferFrom(msg.sender, address(this), amount);
 
         _sendTransfer(
             IICS20TransferMsgs.SendTransferMsg({
@@ -72,7 +75,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
     ) external {
         require(block.timestamp < fees.quoteExpiry, "Fee quote expired");
 
-        IERC20(swapInputToken).transferFrom(msg.sender, address(this), swapInputAmount);
+        IERC20(swapInputToken).safeTransferFrom(msg.sender, address(this), swapInputAmount);
 
         uint256 amountOut = _swap(swapInputToken, transferParams.token, swapInputAmount, swapCalldata);
 
@@ -82,7 +85,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
 
         // Collect fees
         if (fees.relayFee > 0) {
-            IERC20(transferParams.token).transfer(fees.relayFeeRecipient, fees.relayFee);
+            IERC20(transferParams.token).safeTransfer(fees.relayFeeRecipient, fees.relayFee);
         }
 
         uint256 amountOutAfterFees = amountOut - _totalFees(fees);
@@ -112,10 +115,10 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
 
         // Collect fees
         if (fees.relayFee > 0) {
-            IERC20(lbtc).transferFrom(msg.sender, fees.relayFeeRecipient, fees.relayFee);
+            IERC20(lbtc).safeTransferFrom(msg.sender, fees.relayFeeRecipient, fees.relayFee);
         }
 
-        IERC20(lbtc).transferFrom(msg.sender, address(this), amount);
+        IERC20(lbtc).safeTransferFrom(msg.sender, address(this), amount);
 
         IERC20(lbtc).approve(lbtcVoucher, amount);
 
@@ -139,13 +142,13 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
     function lombardSpend(uint256 amount) external {
         uint256 lbtcBalanceBefore = IERC20(lbtc).balanceOf(address(this));
 
-        IERC20(lbtcVoucher).transferFrom(msg.sender, address(this), amount);
+        IERC20(lbtcVoucher).safeTransferFrom(msg.sender, address(this), amount);
 
         IIBCVoucher(lbtcVoucher).spend(amount);
 
         uint256 lbtcBalanceAfter = IERC20(lbtc).balanceOf(address(this));
 
-        IERC20(lbtc).transfer(msg.sender, lbtcBalanceAfter - lbtcBalanceBefore);
+        IERC20(lbtc).safeTransfer(msg.sender, lbtcBalanceAfter - lbtcBalanceBefore);
     }
 
     function _sendTransfer(IICS20TransferMsgs.SendTransferMsg memory transferMsg) internal {
