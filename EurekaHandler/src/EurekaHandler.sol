@@ -11,8 +11,6 @@ import {IICS20TransferMsgs, IICS20Transfer} from "./interfaces/eureka/ICS20Trans
 import {IIBCVoucher} from "./interfaces/lombard/IIBCVoucher.sol";
 import {IEurekaHandler} from "./interfaces/IEurekaHandler.sol";
 
-import {console} from "forge-std/console.sol";
-
 contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
