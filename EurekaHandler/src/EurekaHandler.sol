@@ -128,7 +128,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
 
         IERC20(lbtc).safeTransferFrom(msg.sender, address(this), amount);
 
-        IERC20(lbtc).approve(lbtcVoucher, amount);
+        IERC20(lbtc).forceApprove(lbtcVoucher, amount);
 
         uint256 voucherAmount = IIBCVoucher(lbtcVoucher).wrap(amount, minAmountOut);
 
@@ -160,7 +160,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
     }
 
     function _sendTransfer(IICS20TransferMsgs.SendTransferMsg memory transferMsg) internal {
-        IERC20(transferMsg.denom).approve(ics20Transfer, transferMsg.amount);
+        IERC20(transferMsg.denom).forceApprove(ics20Transfer, transferMsg.amount);
 
         IICS20Transfer(ics20Transfer).sendTransferWithSender(transferMsg, msg.sender);
     }
@@ -171,7 +171,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
     {
         uint256 tokenOutBalanceBefore = IERC20(tokenOut).balanceOf(address(this));
 
-        IERC20(tokenIn).approve(swapRouter, amountIn);
+        IERC20(tokenIn).forceApprove(swapRouter, amountIn);
 
         (bool success,) = swapRouter.call(swapCalldata);
         if (!success) {
