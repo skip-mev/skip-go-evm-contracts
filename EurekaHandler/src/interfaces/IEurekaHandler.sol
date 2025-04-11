@@ -27,6 +27,15 @@ interface IEurekaHandler {
         Fees memory fees
     ) external payable;
 
+    function swapAndLombardTransfer(
+        address swapInputToken,
+        uint256 swapInputAmount,
+        bytes memory swapCalldata,
+        uint256 minAmountOut,
+        TransferParams memory transferParams,
+        Fees memory fees
+    ) external payable;
+
     function lombardTransfer(
         uint256 amount,
         uint256 minAmountOut,

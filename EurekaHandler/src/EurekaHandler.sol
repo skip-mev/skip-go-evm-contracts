@@ -11,6 +11,8 @@ import {IICS20TransferMsgs, IICS20Transfer} from "./interfaces/eureka/ICS20Trans
 import {IIBCVoucher} from "./interfaces/lombard/IIBCVoucher.sol";
 import {IEurekaHandler} from "./interfaces/IEurekaHandler.sol";
 
+import {console} from "forge-std/console.sol";
+
 contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
@@ -113,6 +115,58 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         emit EurekaTransfer(transferParams.token, amountOutAfterFees, fees.relayFee, fees.relayFeeRecipient);
     }
 
+    function swapAndLombardTransfer(
+        address swapInputToken,
+        uint256 swapInputAmount,
+        bytes memory swapCalldata,
+        uint256 minAmountOut,
+        TransferParams memory transferParams,
+        Fees memory fees
+    ) external payable {
+        require(block.timestamp < fees.quoteExpiry, "Fee quote expired");
+
+        uint256 amountOut;
+        if (swapInputToken == address(0)) {
+            require(msg.value == swapInputAmount, "Insufficient native token");
+
+            amountOut = _swapNative(address(lbtc), swapInputAmount, swapCalldata);
+        } else {
+            IERC20(swapInputToken).safeTransferFrom(msg.sender, address(this), swapInputAmount);
+
+            amountOut = _swap(swapInputToken, address(lbtc), swapInputAmount, swapCalldata);
+        }
+
+        if (amountOut <= _totalFees(fees)) {
+            revert("Insufficient amount out to cover fees");
+        }
+
+        // Collect fees
+        if (fees.relayFee > 0) {
+            IERC20(lbtc).safeTransfer(fees.relayFeeRecipient, fees.relayFee);
+        }
+
+        uint256 amountOutAfterFees = amountOut - _totalFees(fees);
+
+        IERC20(lbtc).forceApprove(lbtcVoucher, amountOutAfterFees);
+
+        uint256 voucherAmount = IIBCVoucher(lbtcVoucher).wrap(amountOutAfterFees, minAmountOut);
+
+
+         _sendTransfer(
+            IICS20TransferMsgs.SendTransferMsg({
+                denom: lbtcVoucher,
+                amount: voucherAmount,
+                receiver: transferParams.recipient,
+                sourceClient: transferParams.sourceClient,
+                destPort: transferParams.destPort,
+                timeoutTimestamp: transferParams.timeoutTimestamp,
+                memo: transferParams.memo
+            })
+        );
+
+        emit EurekaTransfer(lbtcVoucher, voucherAmount, fees.relayFee, fees.relayFeeRecipient);
+    }
+    
     function lombardTransfer(
         uint256 amount,
         uint256 minAmountOut,
