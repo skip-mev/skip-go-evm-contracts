@@ -12,8 +12,6 @@ import {IIBCVoucher} from "./interfaces/lombard/IIBCVoucher.sol";
 import {IEurekaHandler} from "./interfaces/IEurekaHandler.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 
-import {console} from "forge-std/console.sol";
-
 contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
