@@ -10,6 +10,9 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {IICS20TransferMsgs, IICS20Transfer} from "./interfaces/eureka/ICS20Transfer.sol";
 import {IIBCVoucher} from "./interfaces/lombard/IIBCVoucher.sol";
 import {IEurekaHandler} from "./interfaces/IEurekaHandler.sol";
+import {IWETH} from "./interfaces/IWETH.sol";
+
+import {console} from "forge-std/console.sol";
 
 contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
@@ -41,15 +44,20 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         lbtc = _lbtc;
     }
 
-    function transfer(uint256 amount, TransferParams memory transferParams, Fees memory fees) external {
+    function transfer(uint256 amount, TransferParams memory transferParams, Fees memory fees) external payable {        
         require(block.timestamp < fees.quoteExpiry, "Fee quote expired");
+
+        if (msg.value > 0) {
+            require(msg.value == amount + fees.relayFee, "Insufficient native token");
+            IWETH(transferParams.token).deposit{value: msg.value}();
+        } else {
+            IERC20(transferParams.token).safeTransferFrom(msg.sender, address(this), amount + fees.relayFee);
+        }
 
         // Collect fees
         if (fees.relayFee > 0) {
-            IERC20(transferParams.token).safeTransferFrom(msg.sender, fees.relayFeeRecipient, fees.relayFee);
+            IERC20(transferParams.token).safeTransfer(fees.relayFeeRecipient, fees.relayFee);
         }
-
-        IERC20(transferParams.token).safeTransferFrom(msg.sender, address(this), amount);
 
         _sendTransfer(
             IICS20TransferMsgs.SendTransferMsg({

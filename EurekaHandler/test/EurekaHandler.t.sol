@@ -8,7 +8,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {EurekaHandler, IEurekaHandler} from "../src/EurekaHandler.sol";
 import {IICS20Transfer, IICS20TransferMsgs} from "../src/interfaces/eureka/ICS20Transfer.sol";
 import {IIBCVoucher} from "../src/interfaces/lombard/IIBCVoucher.sol";
-
+import {IWETH} from "../src/interfaces/IWETH.sol";
 contract EurekaHandlerTest is Test {
     address ics20Transfer = 0xbb87C1ACc6306ad2233a4c7BBE75a1230409b358;
     address swapRouter = 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E;
@@ -95,6 +95,53 @@ contract EurekaHandlerTest is Test {
 
         vm.startPrank(alice);
         handler.transfer(amount, transferParams, fees);
+    }
+
+    function testTransferWithNativeToken() public {
+        address token = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+        uint256 amount = 1_000_000;
+
+        IEurekaHandler.TransferParams memory transferParams = IEurekaHandler.TransferParams({
+            token: token,
+            recipient: "cosmos1234",
+            sourceClient: "client-0",
+            destPort: "transfer",
+            timeoutTimestamp: uint64(block.timestamp + 100),
+            memo: ""
+        });
+
+        IEurekaHandler.Fees memory fees = IEurekaHandler.Fees({
+            relayFee: 100,
+            relayFeeRecipient: relayFeeRecipient,
+            quoteExpiry: uint64(block.timestamp + 100)
+        });
+
+        address alice = makeAddr("alice");
+
+        vm.mockCall(token, abi.encodeWithSelector(IWETH.deposit.selector), abi.encode(true));
+
+        vm.mockCall(
+            address(ics20Transfer),
+            abi.encodeWithSelector(
+                IICS20Transfer.sendTransferWithSender.selector,
+                IICS20TransferMsgs.SendTransferMsg({
+                    denom: token,
+                    amount: amount,
+                    receiver: transferParams.recipient,
+                    sourceClient: transferParams.sourceClient,
+                    destPort: transferParams.destPort,
+                    timeoutTimestamp: transferParams.timeoutTimestamp,
+                    memo: transferParams.memo
+                }),
+                alice
+            ),
+            abi.encode(1)
+        );        
+
+        vm.deal(alice, amount + fees.relayFee);
+
+        vm.startPrank(alice);
+        handler.transfer{value: amount + fees.relayFee}(amount, transferParams, fees);
     }
 
     function testSwapAndTransfer() public {
