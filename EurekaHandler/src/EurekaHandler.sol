@@ -85,8 +85,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
 
             amountOut = _swap(swapInputToken, transferParams.token, swapInputAmount, swapCalldata);
         }
-
-
+        
         if (amountOut <= _totalFees(fees)) {
             revert("Insufficient amount out to cover fees");
         }
