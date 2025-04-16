@@ -9,7 +9,7 @@ contract AxelarHandlerUpgradeScript is Script {
     CCTPRelayer public relayer;
 
     function setUp() public {
-        relayer = CCTPRelayer(payable(0xBC8552339dA68EB65C8b88B414B5854E0E366cFc));
+        relayer = CCTPRelayer(payable(0x32cb9574650AFF312c80edc4B4343Ff5500767cA));
     }
 
     function run() public {
