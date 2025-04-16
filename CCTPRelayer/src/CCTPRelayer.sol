@@ -157,7 +157,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             token.safeTransferFrom(msg.sender, address(this), inputAmount);
 
             // Approve the swap router to spend the input tokens
-            token.approve(swapRouter, inputAmount);
+            token.forceApprove(swapRouter, inputAmount);
 
             // Call the swap router and perform the swap
             (bool success,) = swapRouter.call(swapCalldata);
@@ -177,7 +177,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
                 token.safeTransfer(msg.sender, dust);
 
                 // Revoke Approval
-                token.approve(swapRouter, 0);
+                token.forceApprove(swapRouter, 0);
             }
         }
 
@@ -246,7 +246,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
             token.safeTransferFrom(msg.sender, address(this), inputAmount);
 
             // Approve the swap router to spend the input tokens
-            token.approve(swapRouter, inputAmount);
+            token.forceApprove(swapRouter, inputAmount);
 
             // Call the swap router and perform the swap
             (bool success,) = swapRouter.call(swapCalldata);
@@ -266,7 +266,7 @@ contract CCTPRelayer is ICCTPRelayer, Initializable, UUPSUpgradeable, Ownable2St
                 token.safeTransfer(msg.sender, dust);
 
                 // Revoke Approval
-                token.approve(swapRouter, 0);
+                token.forceApprove(swapRouter, 0);
             }
         }
 

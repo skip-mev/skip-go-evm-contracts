@@ -19,3 +19,15 @@
 [submodule "CCTPRelayer/lib/openzeppelin-contracts-upgradeable"]
 	path = CCTPRelayer/lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
+[submodule "EurekaHandler/lib/forge-std"]
+	path = EurekaHandler/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "EurekaHandler/lib/openzeppelin-contracts"]
+	path = EurekaHandler/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "EurekaHandler/lib/openzeppelin-contracts-upgradeable"]
+	path = EurekaHandler/lib/openzeppelin-contracts-upgradeable
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
+[submodule "EurekaHandler/lib/solidity-ibc-eureka"]
+	path = EurekaHandler/lib/solidity-ibc-eureka
+	url = https://github.com/cosmos/solidity-ibc-eureka
