@@ -335,6 +335,78 @@ contract EurekaHandlerTest is Test {
         handler.lombardTransfer(amountIn, 99000000, transferParams, fees);
     }
 
+    function testSwapAndLombardTransfer() public {
+        address weth = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;
+
+        uint256 amountIn = 1000000000;
+
+        bytes memory swapCalldata = _encodeSwapExactInputCalldata(weth, lbtc, 500, address(handler), amountIn, 0, 0);
+
+        IEurekaHandler.TransferParams memory transferParams = IEurekaHandler.TransferParams({
+            token: lbtcVoucher,
+            recipient: "cosmos1234",
+            sourceClient: "client-0",
+            destPort: "transfer",
+            timeoutTimestamp: uint64(block.timestamp + 100),
+            memo: ""
+        });
+
+        IEurekaHandler.Fees memory fees = IEurekaHandler.Fees({
+            relayFee: 100,
+            relayFeeRecipient: relayFeeRecipient,
+            quoteExpiry: uint64(block.timestamp + 100)
+        });        
+
+        address alice = makeAddr("alice");
+
+        vm.mockCall(
+            weth,
+            abi.encodeWithSelector(IERC20.transferFrom.selector, alice, address(handler), amountIn),
+            abi.encode(true)
+        );
+
+        vm.mockCall(
+            lbtc,
+            abi.encodeWithSelector(IERC20.transferFrom.selector, address(handler), relayFeeRecipient, fees.relayFee),
+            abi.encode(true)
+        );
+
+        {
+            bytes[] memory lbtcBalanceMockResponses = new bytes[](2);
+            lbtcBalanceMockResponses[0] = abi.encode(0);
+            lbtcBalanceMockResponses[1] = abi.encode(100000000);
+
+            vm.mockCalls(
+                lbtc, abi.encodeWithSelector(IERC20.balanceOf.selector, address(handler)), lbtcBalanceMockResponses
+            );
+        }        
+
+        vm.mockCall(
+            lbtcVoucher, abi.encodeWithSelector(IIBCVoucher.wrap.selector, 99999900, 99000000), abi.encode(99000000)
+        );        
+
+        vm.mockCall(
+            address(ics20Transfer),
+            abi.encodeWithSelector(
+                IICS20Transfer.sendTransferWithSender.selector,
+                IICS20TransferMsgs.SendTransferMsg({
+                    denom: lbtcVoucher,
+                    amount: 99000000,
+                    receiver: transferParams.recipient,
+                    sourceClient: transferParams.sourceClient,
+                    destPort: transferParams.destPort,
+                    timeoutTimestamp: transferParams.timeoutTimestamp,
+                    memo: transferParams.memo
+                }),
+                alice
+            ),
+            abi.encode(1)
+        );
+
+        vm.startPrank(alice);
+        handler.swapAndLombardTransfer(weth, amountIn, swapCalldata, 99000000, transferParams, fees);
+    }
+
     function _encodeSwapExactInputCalldata(
         address tokenIn,
         address tokenOut,
