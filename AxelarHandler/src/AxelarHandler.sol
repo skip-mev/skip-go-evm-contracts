@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.18;
+pragma solidity ^0.8.0;
 
 import {IWETH} from "./interfaces/IWETH.sol";
 
@@ -13,7 +13,7 @@ import {Ownable2StepUpgradeable} from
 import {UUPSUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
-import {ISwapRouter02} from "./interfaces/ISwapRouter02.sol";
+// import {ISwapRouter02} from "./interfaces/ISwapRouter02.sol";
 import {SkipSwapRouter} from "./libraries/SkipSwapRouter.sol";
 
 /// @title AxelarHandler
@@ -32,7 +32,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     error NonNativeCannotBeUnwrapped();
     error NativePaymentFailed();
     error WrappingNotEnabled();
-    error SwapFailed();
+    error SwapFailedError();
     error InsufficientSwapOutput();
     error InsufficientNativeToken();
     error ETHSendFailed();
@@ -45,8 +45,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     enum Commands {
         SendToken,
         SendNative,
-        Swap,
-        MultiSwap
+        Swap
     }
 
     bytes32 private _wETHSymbolHash;
@@ -58,7 +57,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
     bytes32 public constant DISABLED_SYMBOL = keccak256(abi.encodePacked("DISABLED"));
 
-    ISwapRouter02 public swapRouter;
+    address public swapRouter;
 
     bool internal reentrant;
 
@@ -96,7 +95,7 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
     function setSwapRouter(address _swapRouter) external onlyOwner {
         if (_swapRouter == address(0)) revert ZeroAddress();
 
-        swapRouter = ISwapRouter02(_swapRouter);
+        swapRouter = _swapRouter;
     }
 
     /// @notice Sends native currency to other chains through the axelar gateway.
@@ -230,73 +229,13 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         if (bytes(symbol).length == 0) revert EmptySymbol();
 
         // Get the address of the output token based on the symbol provided
-        IERC20 outputToken = IERC20(_getTokenAddress(symbol));
+        address outputToken = _getTokenAddress(symbol);
 
         uint256 outputAmount;
         if (inputToken == address(0)) {
-            // Native Token
-            if (amount + gasPaymentAmount != msg.value) revert InsufficientNativeToken();
-
-            // Get the contract's balances previous to the swap
-            uint256 preInputBalance = address(this).balance - msg.value;
-            uint256 preOutputBalance = outputToken.balanceOf(address(this));
-
-            // Call the swap router and perform the swap
-            (bool success,) = address(swapRouter).call{value: amount}(swapCalldata);
-            if (!success) revert SwapFailed();
-
-            // Get the contract's balances after the swap
-            uint256 postInputBalance = address(this).balance;
-            uint256 postOutputBalance = outputToken.balanceOf(address(this));
-
-            // Check that the contract's native token balance has increased
-            if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
-            outputAmount = postOutputBalance - preOutputBalance;
-
-            // Refund the remaining ETH
-            uint256 dust = postInputBalance - preInputBalance - gasPaymentAmount;
-            if (dust != 0) {
-                (bool ethSuccess,) = msg.sender.call{value: dust}("");
-                if (!ethSuccess) revert ETHSendFailed();
-            }
-
-            emit SwapSuccess(inputToken, address(outputToken), amount, outputAmount);
+            outputAmount = _swapAndRefundNative(amount, outputToken, gasPaymentAmount, swapCalldata);
         } else {
-            // ERC20 Token
-            if (gasPaymentAmount != msg.value) revert();
-
-            // Transfer input ERC20 tokens to the contract
-            IERC20 token = IERC20(inputToken);
-            token.safeTransferFrom(msg.sender, address(this), amount);
-
-            // Approve the swap router to spend the input tokens
-            token.safeApprove(address(swapRouter), amount);
-
-            // Get the contract's balances previous to the swap
-            uint256 preInputBalance = token.balanceOf(address(this));
-            uint256 preOutputBalance = outputToken.balanceOf(address(this));
-
-            // Call the swap router and perform the swap
-            (bool success,) = address(swapRouter).call(swapCalldata);
-            if (!success) revert SwapFailed();
-
-            // Get the contract's balances after the swap
-            uint256 dust = token.balanceOf(address(this)) + amount - preInputBalance;
-            uint256 postOutputBalance = outputToken.balanceOf(address(this));
-
-            // Check that the contract's output token balance has increased
-            if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
-            outputAmount = postOutputBalance - preOutputBalance;
-
-            // Refund the remaining amount
-            if (dust != 0) {
-                token.safeTransfer(msg.sender, dust);
-
-                // Revoke approval
-                token.safeApprove(address(swapRouter), 0);
-            }
-
-            emit SwapSuccess(inputToken, address(outputToken), amount, outputAmount);
+            outputAmount = _swapAndRefund(amount, inputToken, outputToken, gasPaymentAmount, swapCalldata);
         }
 
         // Pay the gas for the GMP transfer
@@ -390,28 +329,11 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
             _sendNative(token, amount, destination);
         } else if (command == Commands.Swap) {
-            (address destination, bool unwrapOut, bytes memory swap) = abi.decode(data, (address, bool, bytes));
+            (uint256 amountOutMin, address tokenOut, address destination, bool unwrapOut, bytes memory swap) =
+                abi.decode(data, (uint256, address, address, bool, bytes));
 
-            try SkipSwapRouter.swap(swapRouter, destination, tokenIn, amount, swap) returns (
-                IERC20 tokenOut, uint256 amountOut
-            ) {
-                if (unwrapOut) {
-                    _sendNative(address(tokenOut), amountOut, destination);
-                    emit SwapSuccess(address(tokenIn), address(0), amount, amountOut);
-                } else {
-                    _sendToken(address(tokenOut), amountOut, destination);
-                    emit SwapSuccess(address(tokenIn), address(tokenOut), amount, amountOut);
-                }
-            } catch {
-                _sendToken(token, amount, destination);
-                emit SwapFailed();
-            }
-        } else if (command == Commands.MultiSwap) {
-            (address destination, bool unwrapOut, bytes[] memory swaps) = abi.decode(data, (address, bool, bytes[]));
-
-            try SkipSwapRouter.multiSwap(swapRouter, destination, tokenIn, amount, swaps) returns (
-                IERC20 tokenOut, uint256 amountOut
-            ) {
+            try SkipSwapRouter.swap(swapRouter, destination, address(tokenIn), tokenOut, amount, amountOutMin, swap)
+            returns (uint256 amountOut) {
                 if (unwrapOut) {
                     _sendNative(address(tokenOut), amountOut, destination);
                     emit SwapSuccess(address(tokenIn), address(0), amount, amountOut);
@@ -426,6 +348,85 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
         } else {
             revert FunctionCodeNotSupported();
         }
+    }
+
+    function _swapAndRefund(
+        uint256 amount,
+        address inputToken,
+        address outputToken,
+        uint256 gasPaymentAmount,
+        bytes memory swapCalldata
+    ) internal returns (uint256 outputAmount) {
+        // ERC20 Token
+        if (gasPaymentAmount != msg.value) revert();
+
+        // Transfer input ERC20 tokens to the contract
+        IERC20 token = IERC20(inputToken);
+        token.safeTransferFrom(msg.sender, address(this), amount);
+
+        // Approve the swap router to spend the input tokens
+        token.safeApprove(address(swapRouter), amount);
+
+        // Get the contract's balances previous to the swap
+        uint256 preInputBalance = token.balanceOf(address(this));
+        uint256 preOutputBalance = IERC20(outputToken).balanceOf(address(this));
+
+        // Call the swap router and perform the swap
+        (bool success,) = address(swapRouter).call(swapCalldata);
+        if (!success) revert SwapFailedError();
+
+        // Get the contract's balances after the swap
+        uint256 dust = token.balanceOf(address(this)) + amount - preInputBalance;
+        uint256 postOutputBalance = IERC20(outputToken).balanceOf(address(this));
+
+        // Check that the contract's output token balance has increased
+        if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
+        outputAmount = postOutputBalance - preOutputBalance;
+
+        // Refund the remaining amount
+        if (dust != 0) {
+            token.safeTransfer(msg.sender, dust);
+
+            // Revoke approval
+            token.safeApprove(address(swapRouter), 0);
+        }
+
+        emit SwapSuccess(inputToken, address(outputToken), amount, outputAmount);
+    }
+
+    function _swapAndRefundNative(
+        uint256 amount,
+        address outputToken,
+        uint256 gasPaymentAmount,
+        bytes memory swapCalldata
+    ) internal returns (uint256 outputAmount) {
+        // Native Token
+        if (amount + gasPaymentAmount != msg.value) revert InsufficientNativeToken();
+
+        // Get the contract's balances previous to the swap
+        uint256 preInputBalance = address(this).balance - msg.value;
+        uint256 preOutputBalance = IERC20(outputToken).balanceOf(address(this));
+
+        // Call the swap router and perform the swap
+        (bool success,) = address(swapRouter).call{value: amount}(swapCalldata);
+        if (!success) revert SwapFailedError();
+
+        // Get the contract's balances after the swap
+        uint256 postInputBalance = address(this).balance;
+        uint256 postOutputBalance = IERC20(outputToken).balanceOf(address(this));
+
+        // Check that the contract's native token balance has increased
+        if (preOutputBalance >= postOutputBalance) revert InsufficientSwapOutput();
+        outputAmount = postOutputBalance - preOutputBalance;
+
+        // Refund the remaining ETH
+        uint256 dust = postInputBalance - preInputBalance - gasPaymentAmount;
+        if (dust != 0) {
+            (bool ethSuccess,) = msg.sender.call{value: dust}("");
+            if (!ethSuccess) revert ETHSendFailed();
+        }
+
+        emit SwapSuccess(address(0), address(outputToken), amount, outputAmount);
     }
 
     function _sendToken(address token, uint256 amount, address destination) internal {
