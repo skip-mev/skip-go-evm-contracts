@@ -13,11 +13,19 @@ contract SkipGoSwapRouter {
         bytes data;
     }
 
-    function swapExactIn(uint256 amountIn, uint256 amountOutMin, address tokenIn, address tokenOut, Hop[] calldata hops)
-        external
-        payable
-        returns (uint256 amountOut)
-    {
+    struct Affiliate {
+        address recipient;
+        uint256 feeBPS;
+    }
+
+    function swapExactIn(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address tokenIn,
+        address tokenOut,
+        Hop[] calldata hops,
+        Affiliate[] calldata affiliates
+    ) external payable returns (uint256 amountOut) {
         IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
 
         amountOut = amountIn;
@@ -43,9 +51,11 @@ contract SkipGoSwapRouter {
 
         require(amountOut >= amountOutMin, "amount out is less than amount out min");
 
-        IERC20(tokenOut).transfer(msg.sender, amountOut);
+        uint256 amountPaid = _payAffiliateFees(tokenOut, amountOut, affiliates);
 
-        return amountOut;
+        IERC20(tokenOut).transfer(msg.sender, amountOut - amountPaid);
+
+        amountOut = amountOut - amountPaid;
     }
 
     function swapExactOut(
@@ -53,7 +63,8 @@ contract SkipGoSwapRouter {
         uint256 amountInMax,
         address tokenIn,
         address tokenOut,
-        Hop[] calldata hops
+        Hop[] calldata hops,
+        Affiliate[] calldata affiliates
     ) external payable returns (uint256 amountIn) {
         amountIn = getAmountIn(amountOut, hops);
 
@@ -82,7 +93,9 @@ contract SkipGoSwapRouter {
             amountOut = abi.decode(returnData, (uint256));
         }
 
-        IERC20(tokenOut).transfer(msg.sender, amountOut);
+        uint256 amountPaid = _payAffiliateFees(tokenOut, amountOut, affiliates);
+
+        IERC20(tokenOut).transfer(msg.sender, amountOut - amountPaid);
     }
 
     function getAmountOut(uint256 amountIn, Hop[] calldata hops) public view returns (uint256 amountOut) {
@@ -128,5 +141,22 @@ contract SkipGoSwapRouter {
         assembly {
             revert(add(data, 32), mload(data))
         }
+    }
+
+    function _payAffiliateFees(address token, uint256 amount, Affiliate[] calldata affiliates)
+        private
+        returns (uint256 amountPaid)
+    {
+        for (uint256 i = 0; i < affiliates.length; i++) {
+            Affiliate memory affiliate = affiliates[i];
+
+            uint256 fee = (amount * affiliate.feeBPS) / 10000;
+
+            amountPaid += fee;
+
+            IERC20(token).transfer(affiliate.recipient, fee);
+        }
+
+        return amountPaid;
     }
 }
