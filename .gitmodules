@@ -31,3 +31,9 @@
 [submodule "EurekaHandler/lib/solidity-ibc-eureka"]
 	path = EurekaHandler/lib/solidity-ibc-eureka
 	url = https://github.com/cosmos/solidity-ibc-eureka
+[submodule "SwapRouter/lib/forge-std"]
+	path = SwapRouter/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "SwapRouter/lib/openzeppelin-contracts"]
+	path = SwapRouter/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
