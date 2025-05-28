@@ -329,13 +329,13 @@ contract AxelarHandler is AxelarExecutableUpgradeable, Ownable2StepUpgradeable, 
 
             _sendNative(token, amount, destination);
         } else if (command == Commands.Swap) {
-            (uint256 amountOutMin, address tokenOut, address destination, bool unwrapOut, bytes memory swap) =
-                abi.decode(data, (uint256, address, address, bool, bytes));
+            (address tokenOut, address destination, bytes memory swap) = abi.decode(data, (address, address, bytes));
 
-            try SkipSwapRouter.swap(swapRouter, destination, address(tokenIn), tokenOut, amount, amountOutMin, swap)
-            returns (uint256 amountOut) {
-                if (unwrapOut) {
-                    _sendNative(address(tokenOut), amountOut, destination);
+            try SkipSwapRouter.swap(swapRouter, destination, address(tokenIn), tokenOut, amount, swap) returns (
+                uint256 amountOut
+            ) {
+                if (tokenOut == address(0)) {
+                    address(destination).call{value: amountOut}("");
                     emit SwapSuccess(address(tokenIn), address(0), amount, amountOut);
                 } else {
                     _sendToken(address(tokenOut), amountOut, destination);
