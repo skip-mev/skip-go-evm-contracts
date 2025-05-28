@@ -8,7 +8,9 @@ import {IUniswapV2Pair} from "../interfaces/uniswapv2/IUniswapV2Pair.sol";
 contract UniswapV2Adapter {
     struct UniswapV2Data {
         address pool;
-        bool zeroToOne;
+        address tokenIn;
+        address tokenOut;
+        // bool zeroToOne;
         uint256 fee;
     }
 
@@ -17,17 +19,15 @@ contract UniswapV2Adapter {
 
         (uint112 reserve0, uint112 reserve1,) = IUniswapV2Pair(uniswapV2Data.pool).getReserves();
 
-        (uint256 reserveIn, uint256 reserveOut) = uniswapV2Data.zeroToOne ? (reserve0, reserve1) : (reserve1, reserve0);
+        bool zeroToOne = uniswapV2Data.tokenIn == IUniswapV2Pair(uniswapV2Data.pool).token0();
 
-        address tokenIn = uniswapV2Data.zeroToOne
-            ? IUniswapV2Pair(uniswapV2Data.pool).token0()
-            : IUniswapV2Pair(uniswapV2Data.pool).token1();
+        (uint256 reserveIn, uint256 reserveOut) = zeroToOne ? (reserve0, reserve1) : (reserve1, reserve0);
 
         amountOut = _getAmountOut(amountIn, reserveIn, reserveOut, uniswapV2Data.fee);
 
-        IERC20(tokenIn).transfer(uniswapV2Data.pool, amountIn);
+        IERC20(uniswapV2Data.tokenIn).transfer(uniswapV2Data.pool, amountIn);
 
-        uniswapV2Data.zeroToOne
+        zeroToOne
             ? IUniswapV2Pair(uniswapV2Data.pool).swap(0, amountOut, address(this), "")
             : IUniswapV2Pair(uniswapV2Data.pool).swap(amountOut, 0, address(this), "");
     }
@@ -37,7 +37,9 @@ contract UniswapV2Adapter {
 
         (uint112 reserve0, uint112 reserve1,) = IUniswapV2Pair(uniswapV2Data.pool).getReserves();
 
-        (uint256 reserveIn, uint256 reserveOut) = uniswapV2Data.zeroToOne ? (reserve0, reserve1) : (reserve1, reserve0);
+        bool zeroToOne = uniswapV2Data.tokenIn == IUniswapV2Pair(uniswapV2Data.pool).token0();
+
+        (uint256 reserveIn, uint256 reserveOut) = zeroToOne ? (reserve0, reserve1) : (reserve1, reserve0);
 
         amountOut = _getAmountOut(amountIn, reserveIn, reserveOut, uniswapV2Data.fee);
     }
@@ -47,7 +49,9 @@ contract UniswapV2Adapter {
 
         (uint112 reserve0, uint112 reserve1,) = IUniswapV2Pair(uniswapV2Data.pool).getReserves();
 
-        (uint256 reserveIn, uint256 reserveOut) = uniswapV2Data.zeroToOne ? (reserve0, reserve1) : (reserve1, reserve0);
+        bool zeroToOne = uniswapV2Data.tokenIn == IUniswapV2Pair(uniswapV2Data.pool).token0();
+
+        (uint256 reserveIn, uint256 reserveOut) = zeroToOne ? (reserve0, reserve1) : (reserve1, reserve0);
 
         amountIn = _getAmountIn(amountOut, reserveIn, reserveOut, uniswapV2Data.fee);
     }

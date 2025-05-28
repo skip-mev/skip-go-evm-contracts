@@ -2,10 +2,11 @@
 pragma solidity ^0.8.13;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {IAdapter} from "./interfaces/IAdapter.sol";
 
-contract SkipGoSwapRouter {
+contract SkipGoSwapRouter is Ownable {
     mapping(uint256 => address) public adapters;
 
     struct Hop {
@@ -17,6 +18,8 @@ contract SkipGoSwapRouter {
         address recipient;
         uint256 feeBPS;
     }
+
+    constructor() Ownable(msg.sender) {}
 
     function swapExactIn(
         uint256 amountIn,
@@ -133,7 +136,7 @@ contract SkipGoSwapRouter {
         return amountIn;
     }
 
-    function addAdapter(uint256 exchangeType, address adapter) external {
+    function addAdapter(uint256 exchangeType, address adapter) external onlyOwner {
         adapters[exchangeType] = adapter;
     }
 
