@@ -10,7 +10,6 @@ contract UniswapV2Adapter {
         address pool;
         address tokenIn;
         address tokenOut;
-        // bool zeroToOne;
         uint256 fee;
     }
 
