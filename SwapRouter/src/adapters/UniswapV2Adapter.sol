@@ -13,7 +13,7 @@ contract UniswapV2Adapter {
         uint256 fee;
     }
 
-    function swapExactIn(uint256 amountIn, bytes calldata data) external returns (uint256 amountOut) {
+    function swapExactIn(uint256 amountIn, bytes calldata data) external payable returns (uint256 amountOut) {
         UniswapV2Data memory uniswapV2Data = abi.decode(data, (UniswapV2Data));
 
         (uint112 reserve0, uint112 reserve1,) = IUniswapV2Pair(uniswapV2Data.pool).getReserves();
