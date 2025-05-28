@@ -7,10 +7,15 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IAdapter} from "./interfaces/IAdapter.sol";
 
 contract SkipGoSwapRouter is Ownable {
-    mapping(uint256 => address) public adapters;
+    enum ExchangeType {
+        UNISWAP_V2,
+        UNISWAP_V3
+    }
+
+    mapping(ExchangeType => address) public adapters;
 
     struct Hop {
-        uint256 exchangeType;
+        ExchangeType exchangeType;
         bytes data;
     }
 
@@ -136,7 +141,7 @@ contract SkipGoSwapRouter is Ownable {
         return amountIn;
     }
 
-    function addAdapter(uint256 exchangeType, address adapter) external onlyOwner {
+    function addAdapter(ExchangeType exchangeType, address adapter) external onlyOwner {
         adapters[exchangeType] = adapter;
     }
 
