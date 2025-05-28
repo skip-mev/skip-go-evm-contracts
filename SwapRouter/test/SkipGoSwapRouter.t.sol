@@ -21,10 +21,10 @@ contract SkipGoSwapRouterTest is Test {
         router = new SkipGoSwapRouter();
 
         UniswapV2Adapter uniswapV2Adapter = new UniswapV2Adapter();
-        router.addAdapter(1, address(uniswapV2Adapter));
+        router.addAdapter(SkipGoSwapRouter.ExchangeType.UNISWAP_V2, address(uniswapV2Adapter));
 
         UniswapV3Adapter uniswapV3Adapter = new UniswapV3Adapter();
-        router.addAdapter(2, address(uniswapV3Adapter));
+        router.addAdapter(SkipGoSwapRouter.ExchangeType.UNISWAP_V3, address(uniswapV3Adapter));
     }
 
     function test_swapExactIn() public {
@@ -39,13 +39,15 @@ contract SkipGoSwapRouterTest is Test {
         {
             UniswapV2Adapter.UniswapV2Data memory hopOneData = UniswapV2Adapter.UniswapV2Data({
                 pool: 0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc,
-                zeroToOne: false,
+                tokenIn: weth,
+                tokenOut: usdc,
                 fee: 300
             });
 
             bytes memory encodedHopOneData = abi.encode(hopOneData);
 
-            hops[0] = SkipGoSwapRouter.Hop({exchangeType: 1, data: encodedHopOneData});
+            hops[0] =
+                SkipGoSwapRouter.Hop({exchangeType: SkipGoSwapRouter.ExchangeType.UNISWAP_V2, data: encodedHopOneData});
 
             UniswapV3Adapter.UniswapV3Data memory hopTwoData = UniswapV3Adapter.UniswapV3Data({
                 tokenIn: usdc,
@@ -57,7 +59,8 @@ contract SkipGoSwapRouterTest is Test {
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);
 
-            hops[1] = SkipGoSwapRouter.Hop({exchangeType: 2, data: encodedHopTwoData});
+            hops[1] =
+                SkipGoSwapRouter.Hop({exchangeType: SkipGoSwapRouter.ExchangeType.UNISWAP_V3, data: encodedHopTwoData});
         }
 
         uint256 amountIn = 1 ether;
@@ -98,13 +101,15 @@ contract SkipGoSwapRouterTest is Test {
         {
             UniswapV2Adapter.UniswapV2Data memory hopOneData = UniswapV2Adapter.UniswapV2Data({
                 pool: 0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc,
-                zeroToOne: false,
+                tokenIn: weth,
+                tokenOut: usdc,
                 fee: 300
             });
 
             bytes memory encodedHopOneData = abi.encode(hopOneData);
 
-            hops[0] = SkipGoSwapRouter.Hop({exchangeType: 1, data: encodedHopOneData});
+            hops[0] =
+                SkipGoSwapRouter.Hop({exchangeType: SkipGoSwapRouter.ExchangeType.UNISWAP_V2, data: encodedHopOneData});
 
             UniswapV3Adapter.UniswapV3Data memory hopTwoData = UniswapV3Adapter.UniswapV3Data({
                 tokenIn: usdc,
@@ -116,7 +121,8 @@ contract SkipGoSwapRouterTest is Test {
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);
 
-            hops[1] = SkipGoSwapRouter.Hop({exchangeType: 2, data: encodedHopTwoData});
+            hops[1] =
+                SkipGoSwapRouter.Hop({exchangeType: SkipGoSwapRouter.ExchangeType.UNISWAP_V3, data: encodedHopTwoData});
         }
 
         uint256 amountIn = 1 ether;
@@ -169,13 +175,15 @@ contract SkipGoSwapRouterTest is Test {
         {
             UniswapV2Adapter.UniswapV2Data memory hopOneData = UniswapV2Adapter.UniswapV2Data({
                 pool: 0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc,
-                zeroToOne: false,
+                tokenIn: weth,
+                tokenOut: usdc,
                 fee: 300
             });
 
             bytes memory encodedHopOneData = abi.encode(hopOneData);
 
-            hops[0] = SkipGoSwapRouter.Hop({exchangeType: 1, data: encodedHopOneData});
+            hops[0] =
+                SkipGoSwapRouter.Hop({exchangeType: SkipGoSwapRouter.ExchangeType.UNISWAP_V2, data: encodedHopOneData});
 
             UniswapV3Adapter.UniswapV3Data memory hopTwoData = UniswapV3Adapter.UniswapV3Data({
                 tokenIn: usdc,
@@ -187,7 +195,8 @@ contract SkipGoSwapRouterTest is Test {
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);
 
-            hops[1] = SkipGoSwapRouter.Hop({exchangeType: 2, data: encodedHopTwoData});
+            hops[1] =
+                SkipGoSwapRouter.Hop({exchangeType: SkipGoSwapRouter.ExchangeType.UNISWAP_V3, data: encodedHopTwoData});
         }
 
         uint256 amountIn = 1 ether;
@@ -220,13 +229,15 @@ contract SkipGoSwapRouterTest is Test {
         {
             UniswapV2Adapter.UniswapV2Data memory hopOneData = UniswapV2Adapter.UniswapV2Data({
                 pool: 0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc,
-                zeroToOne: false,
+                tokenIn: weth,
+                tokenOut: usdc,
                 fee: 300
             });
 
             bytes memory encodedHopOneData = abi.encode(hopOneData);
 
-            hops[0] = SkipGoSwapRouter.Hop({exchangeType: 1, data: encodedHopOneData});
+            hops[0] =
+                SkipGoSwapRouter.Hop({exchangeType: SkipGoSwapRouter.ExchangeType.UNISWAP_V2, data: encodedHopOneData});
 
             UniswapV3Adapter.UniswapV3Data memory hopTwoData = UniswapV3Adapter.UniswapV3Data({
                 tokenIn: usdc,
@@ -238,7 +249,8 @@ contract SkipGoSwapRouterTest is Test {
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);
 
-            hops[1] = SkipGoSwapRouter.Hop({exchangeType: 2, data: encodedHopTwoData});
+            hops[1] =
+                SkipGoSwapRouter.Hop({exchangeType: SkipGoSwapRouter.ExchangeType.UNISWAP_V3, data: encodedHopTwoData});
         }
 
         uint256 amountOut = 100000000;
@@ -279,13 +291,15 @@ contract SkipGoSwapRouterTest is Test {
         {
             UniswapV2Adapter.UniswapV2Data memory hopOneData = UniswapV2Adapter.UniswapV2Data({
                 pool: 0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc,
-                zeroToOne: false,
+                tokenIn: weth,
+                tokenOut: usdc,
                 fee: 300
             });
 
             bytes memory encodedHopOneData = abi.encode(hopOneData);
 
-            hops[0] = SkipGoSwapRouter.Hop({exchangeType: 1, data: encodedHopOneData});
+            hops[0] =
+                SkipGoSwapRouter.Hop({exchangeType: SkipGoSwapRouter.ExchangeType.UNISWAP_V2, data: encodedHopOneData});
 
             UniswapV3Adapter.UniswapV3Data memory hopTwoData = UniswapV3Adapter.UniswapV3Data({
                 tokenIn: usdc,
@@ -297,7 +311,8 @@ contract SkipGoSwapRouterTest is Test {
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);
 
-            hops[1] = SkipGoSwapRouter.Hop({exchangeType: 2, data: encodedHopTwoData});
+            hops[1] =
+                SkipGoSwapRouter.Hop({exchangeType: SkipGoSwapRouter.ExchangeType.UNISWAP_V3, data: encodedHopTwoData});
         }
 
         uint256 amountOut = 100000000;
@@ -350,13 +365,15 @@ contract SkipGoSwapRouterTest is Test {
         {
             UniswapV2Adapter.UniswapV2Data memory hopOneData = UniswapV2Adapter.UniswapV2Data({
                 pool: 0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc,
-                zeroToOne: false,
+                tokenIn: weth,
+                tokenOut: usdc,
                 fee: 300
             });
 
             bytes memory encodedHopOneData = abi.encode(hopOneData);
 
-            hops[0] = SkipGoSwapRouter.Hop({exchangeType: 1, data: encodedHopOneData});
+            hops[0] =
+                SkipGoSwapRouter.Hop({exchangeType: SkipGoSwapRouter.ExchangeType.UNISWAP_V2, data: encodedHopOneData});
 
             UniswapV3Adapter.UniswapV3Data memory hopTwoData = UniswapV3Adapter.UniswapV3Data({
                 tokenIn: usdc,
@@ -368,7 +385,8 @@ contract SkipGoSwapRouterTest is Test {
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);
 
-            hops[1] = SkipGoSwapRouter.Hop({exchangeType: 2, data: encodedHopTwoData});
+            hops[1] =
+                SkipGoSwapRouter.Hop({exchangeType: SkipGoSwapRouter.ExchangeType.UNISWAP_V3, data: encodedHopTwoData});
         }
 
         uint256 amountOut = 100000000;

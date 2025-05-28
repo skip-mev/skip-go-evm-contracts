@@ -16,8 +16,8 @@ contract SwapRouterDeploy is Script {
         UniswapV2Adapter uniswapV2Adapter = new UniswapV2Adapter();
         UniswapV3Adapter uniswapV3Adapter = new UniswapV3Adapter();
 
-        router.addAdapter(1, address(uniswapV2Adapter));
-        router.addAdapter(2, address(uniswapV3Adapter));
+        router.addAdapter(SkipGoSwapRouter.ExchangeType.UNISWAP_V2, address(uniswapV2Adapter));
+        router.addAdapter(SkipGoSwapRouter.ExchangeType.UNISWAP_V3, address(uniswapV3Adapter));
 
         vm.stopBroadcast();
 
