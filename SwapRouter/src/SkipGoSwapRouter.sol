@@ -7,8 +7,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IAdapter} from "./interfaces/IAdapter.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 
-import {console} from "forge-std/console.sol";
-
 contract SkipGoSwapRouter is Ownable {
     enum ExchangeType {
         UNISWAP_V2,
