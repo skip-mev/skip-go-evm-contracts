@@ -14,105 +14,38 @@ library SkipSwapRouter {
     error InsufficientOutputAmount();
     error NativePaymentFailed();
 
-    enum SwapCommands {
-        ExactInputSingle,
-        ExactInput,
-        ExactTokensForTokens,
-        ExactOutputSingle,
-        ExactOutput,
-        TokensForExactTokens
-    }
-
-    function multiSwap(
-        ISwapRouter02 router,
+    function swap(
+        address router,
         address destination,
-        IERC20 inputToken,
+        address inputToken,
+        address outputToken,
         uint256 amountIn,
-        bytes[] memory swaps
-    ) external returns (IERC20 outputToken, uint256 amountOut) {
-        outputToken = inputToken;
-        amountOut = amountIn;
+        bytes memory swapData
+    ) public returns (uint256 amountOut) {
+        uint256 preBalIn = IERC20(inputToken).balanceOf(address(this)) - amountIn;
 
-        uint256 numSwaps = swaps.length;
-        for (uint256 i; i < numSwaps; i++) {
-            // The output token and amount of each iteration is the input token and amount of the next.
-            (outputToken, amountOut) = swap(router, destination, outputToken, amountOut, swaps[i]);
-        }
-    }
+        uint256 preBalOut =
+            outputToken == address(0) ? address(this).balance : IERC20(outputToken).balanceOf(address(this));
 
-    function swap(ISwapRouter02 router, address destination, IERC20 inputToken, uint256 amountIn, bytes memory payload)
-        public
-        returns (IERC20 outputToken, uint256 outputAmount)
-    {
-        (SwapCommands command, address tokenOut, uint256 amountOut, bytes memory swapData) =
-            abi.decode(payload, (SwapCommands, address, uint256, bytes));
+        IERC20(inputToken).forceApprove(router, amountIn);
 
-        outputToken = IERC20(tokenOut);
+        (bool success, bytes memory returnData) = router.call(swapData);
 
-        uint256 preBalIn = inputToken.balanceOf(address(this)) - amountIn;
-        uint256 preBalOut = outputToken.balanceOf(address(this));
-
-        inputToken.forceApprove(address(router), amountIn);
-
-        if (command == SwapCommands.ExactInputSingle) {
-            ISwapRouter02.ExactInputSingleParams memory params;
-            params.tokenIn = address(inputToken);
-            params.tokenOut = tokenOut;
-            params.recipient = address(this);
-            params.amountIn = amountIn;
-            params.amountOutMinimum = amountOut;
-
-            (params.fee, params.sqrtPriceLimitX96) = abi.decode(swapData, (uint24, uint160));
-
-            router.exactInputSingle(params);
-        } else if (command == SwapCommands.ExactInput) {
-            ISwapRouter02.ExactInputParams memory params;
-            params.path = _fixPath(address(inputToken), tokenOut, swapData);
-            params.path = swapData;
-            params.recipient = address(this);
-            params.amountIn = amountIn;
-            params.amountOutMinimum = amountOut;
-
-            router.exactInput(params);
-        } else if (command == SwapCommands.ExactTokensForTokens) {
-            address[] memory path = _fixPath(address(inputToken), tokenOut, abi.decode(swapData, (address[])));
-
-            router.swapExactTokensForTokens(amountIn, amountOut, path, address(this));
-        } else if (command == SwapCommands.ExactOutputSingle) {
-            ISwapRouter02.ExactOutputSingleParams memory params;
-            params.tokenIn = address(inputToken);
-            params.tokenOut = tokenOut;
-            params.recipient = address(this);
-            params.amountInMaximum = amountIn;
-            params.amountOut = amountOut;
-
-            (params.fee, params.sqrtPriceLimitX96) = abi.decode(swapData, (uint24, uint160));
-
-            router.exactOutputSingle(params);
-        } else if (command == SwapCommands.ExactOutput) {
-            ISwapRouter02.ExactOutputParams memory params;
-            params.path = _fixPath(tokenOut, address(inputToken), swapData);
-            params.path = swapData;
-            params.recipient = address(this);
-            params.amountInMaximum = amountIn;
-            params.amountOut = amountOut;
-
-            router.exactOutput(params);
-        } else if (command == SwapCommands.TokensForExactTokens) {
-            address[] memory path = _fixPath(address(inputToken), address(tokenOut), abi.decode(swapData, (address[])));
-
-            router.swapTokensForExactTokens(amountOut, amountIn, path, address(this));
+        if (!success) {
+            _revertWithData(returnData);
         }
 
-        outputAmount = outputToken.balanceOf(address(this)) - preBalOut;
-        if (outputAmount < amountOut) {
-            revert InsufficientOutputAmount();
+        if (outputToken == address(0)) {
+            amountOut = address(this).balance - preBalOut;
+        } else {
+            amountOut = IERC20(outputToken).balanceOf(address(this)) - preBalOut;
         }
 
-        uint256 dust = inputToken.balanceOf(address(this)) - preBalIn;
+        uint256 dust = IERC20(inputToken).balanceOf(address(this)) - preBalIn;
+
         if (dust != 0) {
-            inputToken.forceApprove(address(router), 0);
-            inputToken.safeTransfer(destination, dust);
+            IERC20(inputToken).forceApprove(router, 0);
+            IERC20(inputToken).safeTransfer(destination, dust);
         }
     }
 
@@ -154,5 +87,11 @@ library SkipSwapRouter {
         }
 
         return path;
+    }
+
+    function _revertWithData(bytes memory data) private pure {
+        assembly {
+            revert(add(data, 32), mload(data))
+        }
     }
 }
