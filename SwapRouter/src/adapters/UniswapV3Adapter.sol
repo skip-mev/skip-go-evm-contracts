@@ -15,7 +15,7 @@ contract UniswapV3Adapter {
         address swapRouter;
     }
 
-    function swapExactIn(uint256 amountIn, bytes calldata data) external returns (uint256 amountOut) {
+    function swapExactIn(uint256 amountIn, bytes calldata data) external payable returns (uint256 amountOut) {
         UniswapV3Data memory uniswapV3Data = abi.decode(data, (UniswapV3Data));
 
         IERC20(uniswapV3Data.tokenIn).approve(uniswapV3Data.swapRouter, amountIn);
