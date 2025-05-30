@@ -35,7 +35,7 @@ contract UniswapV2AdapterTest is Test {
         deal(tokenIn, alice, amountIn);
 
         UniswapV2Adapter.UniswapV2Data memory data =
-            UniswapV2Adapter.UniswapV2Data({pool: pool, tokenIn: tokenIn, tokenOut: tokenOut, fee: 300});
+            UniswapV2Adapter.UniswapV2Data({pool: pool, zeroToOne: false, fee: 300});
 
         bytes memory encodedData = abi.encode(data);
 

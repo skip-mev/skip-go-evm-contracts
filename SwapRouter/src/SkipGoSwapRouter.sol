@@ -5,7 +5,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {IAdapter} from "./interfaces/IAdapter.sol";
-import {IWETH} from "./interfaces/IWETH.sol";
 
 contract SkipGoSwapRouter is Ownable {
     enum ExchangeType {
@@ -14,8 +13,6 @@ contract SkipGoSwapRouter is Ownable {
     }
 
     mapping(ExchangeType => address) public adapters;
-
-    address public weth;
 
     struct Hop {
         ExchangeType exchangeType;
@@ -27,11 +24,7 @@ contract SkipGoSwapRouter is Ownable {
         uint256 feeBPS;
     }
 
-    constructor(address _weth) Ownable(msg.sender) {
-        weth = _weth;
-    }
-
-    receive() external payable {}
+    constructor() Ownable(msg.sender) {}
 
     function swapExactIn(
         uint256 amountIn,
@@ -41,15 +34,7 @@ contract SkipGoSwapRouter is Ownable {
         Hop[] calldata hops,
         Affiliate[] calldata affiliates
     ) external payable returns (uint256 amountOut) {
-        // if token in is ETH, msg.value must be equal to amountIn
-        // if token in is not ETH, msg.value must be 0
-        require(msg.value == (tokenIn == address(0) ? amountIn : 0), "invalid msg.value");
-
-        if (tokenIn == address(0)) {
-            IWETH(weth).deposit{value: amountIn}();
-        } else {
-            IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
-        }
+        IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
 
         amountOut = amountIn;
 
@@ -76,14 +61,9 @@ contract SkipGoSwapRouter is Ownable {
 
         uint256 amountPaid = _payAffiliateFees(tokenOut, amountOut, affiliates);
 
-        amountOut = amountOut - amountPaid;
+        IERC20(tokenOut).transfer(msg.sender, amountOut - amountPaid);
 
-        if (tokenOut == address(0)) {
-            IWETH(weth).withdraw(amountOut);
-            payable(msg.sender).transfer(amountOut);
-        } else {
-            IERC20(tokenOut).transfer(msg.sender, amountOut);
-        }
+        amountOut = amountOut - amountPaid;
     }
 
     function swapExactOut(
@@ -98,13 +78,7 @@ contract SkipGoSwapRouter is Ownable {
 
         require(amountIn <= amountInMax, "amount in is greater than amount in max");
 
-        if (tokenIn == address(0)) {
-            require(msg.value >= amountIn, "msg.value is less than amount in");
-            IWETH(weth).deposit{value: amountIn}();
-        } else {
-            require(msg.value == 0, "msg.value must be 0");
-            IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
-        }
+        IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
 
         amountOut = amountIn;
 
@@ -129,19 +103,7 @@ contract SkipGoSwapRouter is Ownable {
 
         uint256 amountPaid = _payAffiliateFees(tokenOut, amountOut, affiliates);
 
-        uint256 amountOutAfterFees = amountOut - amountPaid;
-
-        if (tokenOut == address(0)) {
-            IWETH(weth).withdraw(amountOutAfterFees);
-            payable(msg.sender).transfer(amountOutAfterFees);
-        } else {
-            IERC20(tokenOut).transfer(msg.sender, amountOutAfterFees);
-        }
-
-        // refund unused ETH
-        if (tokenIn == address(0) && msg.value > amountIn) {
-            payable(msg.sender).transfer(msg.value - amountIn);
-        }
+        IERC20(tokenOut).transfer(msg.sender, amountOut - amountPaid);
     }
 
     function getAmountOut(uint256 amountIn, Hop[] calldata hops) public view returns (uint256 amountOut) {
