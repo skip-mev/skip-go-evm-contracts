@@ -13,7 +13,6 @@ import {Ownable2StepUpgradeable} from
 import {UUPSUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
-// import {ISwapRouter02} from "./interfaces/ISwapRouter02.sol";
 import {SkipSwapRouter} from "./libraries/SkipSwapRouter.sol";
 
 /// @title AxelarHandler
