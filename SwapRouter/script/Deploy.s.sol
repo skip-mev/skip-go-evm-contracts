@@ -11,7 +11,9 @@ contract SwapRouterDeploy is Script {
     function run() external {
         vm.startBroadcast();
 
-        SkipGoSwapRouter router = SkipGoSwapRouter(0xa11CC0eFb1B3AcD95a2B8cd316E8c132E16048b5);
+        address weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+
+        SkipGoSwapRouter router = new SkipGoSwapRouter(weth);
 
         UniswapV2Adapter uniswapV2Adapter = new UniswapV2Adapter();
         UniswapV3Adapter uniswapV3Adapter = new UniswapV3Adapter();
