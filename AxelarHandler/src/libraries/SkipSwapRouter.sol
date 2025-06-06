@@ -20,7 +20,6 @@ library SkipSwapRouter {
         address inputToken,
         address outputToken,
         uint256 amountIn,
-        uint256 amountOutMin,
         bytes memory swapData
     ) public returns (uint256 amountOut) {
         uint256 preBalIn = IERC20(inputToken).balanceOf(address(this)) - amountIn;
@@ -35,10 +34,6 @@ library SkipSwapRouter {
         }
 
         amountOut = IERC20(outputToken).balanceOf(address(this)) - preBalOut;
-
-        if (amountOut < amountOutMin) {
-            revert InsufficientOutputAmount();
-        }
 
         uint256 dust = IERC20(inputToken).balanceOf(address(this)) - preBalIn;
 

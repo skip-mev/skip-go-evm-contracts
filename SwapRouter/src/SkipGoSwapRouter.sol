@@ -3,11 +3,14 @@ pragma solidity ^0.8.13;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IAdapter} from "./interfaces/IAdapter.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 
 contract SkipGoSwapRouter is Ownable {
+    using SafeERC20 for IERC20;
+
     enum ExchangeType {
         UNISWAP_V2,
         UNISWAP_V3
@@ -48,7 +51,7 @@ contract SkipGoSwapRouter is Ownable {
         if (tokenIn == address(0)) {
             IWETH(weth).deposit{value: amountIn}();
         } else {
-            IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+            IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
         }
 
         amountOut = amountIn;
@@ -82,7 +85,7 @@ contract SkipGoSwapRouter is Ownable {
             IWETH(weth).withdraw(amountOut);
             payable(msg.sender).transfer(amountOut);
         } else {
-            IERC20(tokenOut).transfer(msg.sender, amountOut);
+            IERC20(tokenOut).safeTransfer(msg.sender, amountOut);
         }
     }
 
@@ -103,7 +106,7 @@ contract SkipGoSwapRouter is Ownable {
             IWETH(weth).deposit{value: amountIn}();
         } else {
             require(msg.value == 0, "msg.value must be 0");
-            IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+            IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
         }
 
         amountOut = amountIn;
@@ -135,7 +138,7 @@ contract SkipGoSwapRouter is Ownable {
             IWETH(weth).withdraw(amountOutAfterFees);
             payable(msg.sender).transfer(amountOutAfterFees);
         } else {
-            IERC20(tokenOut).transfer(msg.sender, amountOutAfterFees);
+            IERC20(tokenOut).safeTransfer(msg.sender, amountOutAfterFees);
         }
 
         // refund unused ETH
@@ -200,7 +203,7 @@ contract SkipGoSwapRouter is Ownable {
 
             amountPaid += fee;
 
-            IERC20(token).transfer(affiliate.recipient, fee);
+            IERC20(token).safeTransfer(affiliate.recipient, fee);
         }
 
         return amountPaid;

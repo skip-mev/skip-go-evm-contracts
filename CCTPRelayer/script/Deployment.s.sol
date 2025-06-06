@@ -2,8 +2,8 @@ pragma solidity ^0.8.20;
 
 import "./BaseScript.sol";
 
-import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {CCTPRelayer} from "src/CCTPRelayer.sol";
+import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {CCTPRelayer} from "../src/CCTPRelayer.sol";
 
 contract DeploymentScript is BaseScript {
     function run() public {

@@ -7,31 +7,27 @@ import {EurekaHandler} from "../src/EurekaHandler.sol";
 
 contract DeploymentScript is Script {
     function run() public {
-        // address lbtc = 0xc47e4b3124597FDF8DD07843D4a7052F2eE80C30;
-        // address voucher = 0x8f2403F14D0Ca553273b7d55013E499194f9eC78;
-        // address ics20Transfer = 0xE80DC519EE86146057B9dBEfBa900Edd7a2385e4;
-        // address swapRouter = 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E;
-        // address owner = 0x24a9267cE9e0a8F4467B584FDDa12baf1Df772B5;
+        address lbtc = 0xc47e4b3124597FDF8DD07843D4a7052F2eE80C30;
+        address voucher = 0x8f2403F14D0Ca553273b7d55013E499194f9eC78;
+        address ics20Transfer = 0xE80DC519EE86146057B9dBEfBa900Edd7a2385e4;
+        address swapRouter = 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E;
+        address owner = 0x24a9267cE9e0a8F4467B584FDDa12baf1Df772B5;
 
-        // vm.startBroadcast();
+        vm.startBroadcast();
 
-        // EurekaHandler handlerImpl = new EurekaHandler();
+        EurekaHandler handlerImpl = new EurekaHandler();
 
-        // ERC1967Proxy handlerProxy = new ERC1967Proxy(
-        //     address(handlerImpl),
-        //     abi.encodeWithSignature(
-        //         "initialize(address,address,address,address,address)", owner, ics20Transfer, swapRouter, voucher, lbtc
-        //     )
-        // );
+        ERC1967Proxy handlerProxy = new ERC1967Proxy(
+            address(handlerImpl),
+            abi.encodeWithSignature(
+                "initialize(address,address,address,address,address)", owner, ics20Transfer, swapRouter, voucher, lbtc
+            )
+        );
 
-        // EurekaHandler handler = EurekaHandler(payable(address(handlerProxy)));
+        EurekaHandler handler = EurekaHandler(payable(address(handlerProxy)));
 
-        // vm.stopBroadcast();
+        vm.stopBroadcast();
 
-        // console.log("EurekaHandler deployed at: ", address(handler));
-
-        EurekaHandler handler = EurekaHandler(0x92470162374A6D185758982356833d1aFfFd3b03);
-
-        console.log(handler.lbtc());
+        console.log("EurekaHandler deployed at: ", address(handler));
     }
 }
