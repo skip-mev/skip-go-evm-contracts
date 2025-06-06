@@ -2,10 +2,13 @@
 pragma solidity ^0.8.13;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IUniswapV2Pair} from "../interfaces/uniswapv2/IUniswapV2Pair.sol";
 
 contract UniswapV2Adapter {
+    using SafeERC20 for IERC20;
+
     struct UniswapV2Data {
         address pool;
         address tokenIn;
@@ -24,7 +27,7 @@ contract UniswapV2Adapter {
 
         amountOut = _getAmountOut(amountIn, reserveIn, reserveOut, uniswapV2Data.fee);
 
-        IERC20(uniswapV2Data.tokenIn).transfer(uniswapV2Data.pool, amountIn);
+        IERC20(uniswapV2Data.tokenIn).safeTransfer(uniswapV2Data.pool, amountIn);
 
         zeroToOne
             ? IUniswapV2Pair(uniswapV2Data.pool).swap(0, amountOut, address(this), "")

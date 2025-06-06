@@ -2,11 +2,14 @@
 pragma solidity ^0.8.13;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IQuoter} from "../interfaces/uniswapv3/IQuoter.sol";
 import {ISwapRouter} from "../interfaces/uniswapv3/ISwapRouter.sol";
 
 contract UniswapV3Adapter {
+    using SafeERC20 for IERC20;
+
     struct UniswapV3Data {
         address tokenIn;
         address tokenOut;
@@ -18,7 +21,7 @@ contract UniswapV3Adapter {
     function swapExactIn(uint256 amountIn, bytes calldata data) external payable returns (uint256 amountOut) {
         UniswapV3Data memory uniswapV3Data = abi.decode(data, (UniswapV3Data));
 
-        IERC20(uniswapV3Data.tokenIn).approve(uniswapV3Data.swapRouter, amountIn);
+        IERC20(uniswapV3Data.tokenIn).forceApprove(uniswapV3Data.swapRouter, amountIn);
 
         amountOut = ISwapRouter(uniswapV3Data.swapRouter).exactInputSingle(
             ISwapRouter.ExactInputSingleParams({
@@ -26,7 +29,6 @@ contract UniswapV3Adapter {
                 tokenOut: uniswapV3Data.tokenOut,
                 fee: uniswapV3Data.fee,
                 recipient: address(this),
-                deadline: block.timestamp + 10 minutes,
                 amountIn: amountIn,
                 amountOutMinimum: 1,
                 sqrtPriceLimitX96: 0

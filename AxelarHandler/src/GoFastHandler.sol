@@ -7,13 +7,12 @@ import {OwnableUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contrac
 import {UUPSUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
-import {ISwapRouter02} from "./interfaces/ISwapRouter02.sol";
 import {IFastTransferGateway} from "./interfaces/IFastTransferGateway.sol";
 
 contract GoFastHandler is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
-    ISwapRouter02 public swapRouter;
+    address public swapRouter;
     IFastTransferGateway public fastTransferGateway;
 
     constructor() {
@@ -24,12 +23,12 @@ contract GoFastHandler is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         __Ownable_init();
         __UUPSUpgradeable_init();
 
-        swapRouter = ISwapRouter02(_swapRouter);
+        swapRouter = _swapRouter;
         fastTransferGateway = IFastTransferGateway(_fastTransferGateway);
     }
 
     function setSwapRouter(address _swapRouter) public onlyOwner {
-        swapRouter = ISwapRouter02(_swapRouter);
+        swapRouter = _swapRouter;
     }
 
     function setFastTransferGateway(address _fastTransferGateway) public onlyOwner {

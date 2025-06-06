@@ -2,9 +2,9 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {Environment} from "test/Environment.sol";
+import {Environment} from "../test/Environment.sol";
 
-import {AxelarHandler} from "src/AxelarHandler.sol";
+import {AxelarHandler} from "../src/AxelarHandler.sol";
 
 import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -13,7 +13,6 @@ contract AxelarHandlerDeploymentScript is Script {
     AxelarHandler public handler;
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("RPC_URL"));
         env = new Environment();
         env.setEnv(block.chainid);
     }
@@ -23,16 +22,11 @@ contract AxelarHandlerDeploymentScript is Script {
         address gasService = env.gasService();
         string memory wethSymbol = env.wethSymbol();
 
-        vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
+        vm.startBroadcast();
         AxelarHandler handlerImpl = new AxelarHandler();
         ERC1967Proxy handlerProxy = new ERC1967Proxy(
             address(handlerImpl),
-            abi.encodeWithSignature(
-                "initialize(address,address,string)",
-                gateway,
-                gasService,
-                wethSymbol
-            )
+            abi.encodeWithSignature("initialize(address,address,string)", gateway, gasService, wethSymbol)
         );
         handler = AxelarHandler(payable(address(handlerProxy)));
         vm.stopBroadcast();
