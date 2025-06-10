@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import {Test, console} from "forge-std/Test.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {UniswapV2Adapter} from "../src/adapters/UniswapV2Adapter.sol";
 import {UniswapV3Adapter} from "../src/adapters/UniswapV3Adapter.sol";
@@ -18,7 +19,14 @@ contract SkipGoSwapRouterTest is Test {
 
         vm.selectFork(mainnetFork);
 
-        router = new SkipGoSwapRouter(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+        SkipGoSwapRouter routerImpl = new SkipGoSwapRouter();
+
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
+            address(routerImpl),
+            abi.encodeWithSignature("initialize(address)", 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)
+        );
+
+        router = SkipGoSwapRouter(payable(address(routerProxy)));
 
         UniswapV2Adapter uniswapV2Adapter = new UniswapV2Adapter();
         router.addAdapter(SkipGoSwapRouter.ExchangeType.UNISWAP_V2, address(uniswapV2Adapter));
@@ -54,7 +62,7 @@ contract SkipGoSwapRouterTest is Test {
                 tokenOut: wbtc,
                 fee: 3000,
                 quoter: 0x5e55C9e631FAE526cd4B0526C4818D6e0a9eF0e3,
-                swapRouter: 0xE592427A0AEce92De3Edee1F18E0157C05861564
+                swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
             });
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);
@@ -118,7 +126,7 @@ contract SkipGoSwapRouterTest is Test {
                 tokenOut: wbtc,
                 fee: 3000,
                 quoter: 0x5e55C9e631FAE526cd4B0526C4818D6e0a9eF0e3,
-                swapRouter: 0xE592427A0AEce92De3Edee1F18E0157C05861564
+                swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
             });
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);
@@ -168,7 +176,7 @@ contract SkipGoSwapRouterTest is Test {
                 tokenOut: usdc,
                 fee: 3000,
                 quoter: 0x5e55C9e631FAE526cd4B0526C4818D6e0a9eF0e3,
-                swapRouter: 0xE592427A0AEce92De3Edee1F18E0157C05861564
+                swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
             });
 
             bytes memory encodedHopOneData = abi.encode(hopOneData);
@@ -242,7 +250,7 @@ contract SkipGoSwapRouterTest is Test {
                 tokenOut: wbtc,
                 fee: 3000,
                 quoter: 0x5e55C9e631FAE526cd4B0526C4818D6e0a9eF0e3,
-                swapRouter: 0xE592427A0AEce92De3Edee1F18E0157C05861564
+                swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
             });
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);
@@ -316,7 +324,7 @@ contract SkipGoSwapRouterTest is Test {
                 tokenOut: wbtc,
                 fee: 3000,
                 quoter: 0x5e55C9e631FAE526cd4B0526C4818D6e0a9eF0e3,
-                swapRouter: 0xE592427A0AEce92De3Edee1F18E0157C05861564
+                swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
             });
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);
@@ -370,7 +378,7 @@ contract SkipGoSwapRouterTest is Test {
                 tokenOut: wbtc,
                 fee: 3000,
                 quoter: 0x5e55C9e631FAE526cd4B0526C4818D6e0a9eF0e3,
-                swapRouter: 0xE592427A0AEce92De3Edee1F18E0157C05861564
+                swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
             });
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);
@@ -434,7 +442,7 @@ contract SkipGoSwapRouterTest is Test {
                 tokenOut: wbtc,
                 fee: 3000,
                 quoter: 0x5e55C9e631FAE526cd4B0526C4818D6e0a9eF0e3,
-                swapRouter: 0xE592427A0AEce92De3Edee1F18E0157C05861564
+                swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
             });
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);
@@ -487,7 +495,7 @@ contract SkipGoSwapRouterTest is Test {
                 tokenOut: usdc,
                 fee: 3000,
                 quoter: 0x5e55C9e631FAE526cd4B0526C4818D6e0a9eF0e3,
-                swapRouter: 0xE592427A0AEce92De3Edee1F18E0157C05861564
+                swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
             });
 
             bytes memory encodedHopOneData = abi.encode(hopOneData);
@@ -558,7 +566,7 @@ contract SkipGoSwapRouterTest is Test {
                 tokenOut: wbtc,
                 fee: 3000,
                 quoter: 0x5e55C9e631FAE526cd4B0526C4818D6e0a9eF0e3,
-                swapRouter: 0xE592427A0AEce92De3Edee1F18E0157C05861564
+                swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
             });
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);
@@ -632,7 +640,7 @@ contract SkipGoSwapRouterTest is Test {
                 tokenOut: wbtc,
                 fee: 3000,
                 quoter: 0x5e55C9e631FAE526cd4B0526C4818D6e0a9eF0e3,
-                swapRouter: 0xE592427A0AEce92De3Edee1F18E0157C05861564
+                swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
             });
 
             bytes memory encodedHopTwoData = abi.encode(hopTwoData);

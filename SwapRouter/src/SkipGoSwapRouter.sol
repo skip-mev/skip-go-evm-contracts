@@ -2,13 +2,15 @@
 pragma solidity ^0.8.13;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import {IAdapter} from "./interfaces/IAdapter.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 
-contract SkipGoSwapRouter is Ownable {
+contract SkipGoSwapRouter is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
     enum ExchangeType {
@@ -30,7 +32,14 @@ contract SkipGoSwapRouter is Ownable {
         uint256 feeBPS;
     }
 
-    constructor(address _weth) Ownable(msg.sender) {
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _weth) external initializer {
+        __UUPSUpgradeable_init();
+        __Ownable_init(msg.sender);
+
         weth = _weth;
     }
 
@@ -208,4 +217,6 @@ contract SkipGoSwapRouter is Ownable {
 
         return amountPaid;
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }

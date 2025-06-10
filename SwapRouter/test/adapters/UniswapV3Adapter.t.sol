@@ -37,7 +37,7 @@ contract UniswapV2AdapterTest is Test {
             tokenOut: tokenOut,
             fee: 3000,
             quoter: 0x5e55C9e631FAE526cd4B0526C4818D6e0a9eF0e3,
-            swapRouter: 0xE592427A0AEce92De3Edee1F18E0157C05861564
+            swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
         });
 
         bytes memory encodedData = abi.encode(data);

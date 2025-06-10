@@ -10,7 +10,7 @@ contract DeploymentScript is Script {
         address lbtc = 0xc47e4b3124597FDF8DD07843D4a7052F2eE80C30;
         address voucher = 0x8f2403F14D0Ca553273b7d55013E499194f9eC78;
         address ics20Transfer = 0xE80DC519EE86146057B9dBEfBa900Edd7a2385e4;
-        address swapRouter = 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E;
+        address swapRouter = 0xd1eE705D774d59541d3D395e72A16E48389DF7C7;
         address owner = 0x24a9267cE9e0a8F4467B584FDDa12baf1Df772B5;
 
         vm.startBroadcast();
