@@ -33,26 +33,12 @@ contract AdapterWrapper {
         IERC20(tokenOut).transfer(msg.sender, amountOut);
     }
 
-    function getAmountOut(uint256 amountIn, bytes calldata data) external view returns (uint256 amountOut) {
-        (bool success, bytes memory returnData) =
-            adapter.staticcall(abi.encodeWithSelector(IAdapter.getAmountOut.selector, amountIn, data));
-
-        if (!success) {
-            _revertWithData(returnData);
-        }
-
-        amountOut = abi.decode(returnData, (uint256));
+    function getAmountOut(uint256 amountIn, bytes calldata data) external returns (uint256 amountOut) {
+        amountOut = IAdapter(adapter).getAmountOut(amountIn, data);
     }
 
-    function getAmountIn(uint256 amountOut, bytes calldata data) external view returns (uint256 amountIn) {
-        (bool success, bytes memory returnData) =
-            adapter.staticcall(abi.encodeWithSelector(IAdapter.getAmountIn.selector, amountOut, data));
-
-        if (!success) {
-            _revertWithData(returnData);
-        }
-
-        amountIn = abi.decode(returnData, (uint256));
+    function getAmountIn(uint256 amountOut, bytes calldata data) external returns (uint256 amountIn) {
+        amountIn = IAdapter(adapter).getAmountIn(amountOut, data);
     }
 
     function _revertWithData(bytes memory data) private pure {
