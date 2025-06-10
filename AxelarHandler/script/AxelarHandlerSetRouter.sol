@@ -10,8 +10,8 @@ contract AxelarHandlerSetRouterScript is Script {
     address public router;
 
     function setUp() public {
-        handler = AxelarHandler(payable(0x176521bc70B0b575B5d76F6C2456dC2C70D5178C));
-        router = 0xE9049014d57a114afeD1AC3Df10168e32b0b2077;
+        handler = AxelarHandler(payable(0x73529dcA22c23B41325cC50d440D61663c15dD94));
+        router = 0x32Fb43172c0afB63770372fDe4A84E9b827Ec903;
     }
 
     function run() public {

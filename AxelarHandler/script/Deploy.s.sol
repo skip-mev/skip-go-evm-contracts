@@ -8,22 +8,22 @@ import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/E
 import {GoFastHandler} from "../src/GoFastHandler.sol";
 
 contract GoFastHandlerDeploy is Script {
-    address public constant SWAP_ROUTER_ABRITRUM = 0xE9049014d57a114afeD1AC3Df10168e32b0b2077;
+    address public constant SWAP_ROUTER_ABRITRUM = 0xA307099736ff10f6A639D8a00F3C0AC62E10424a;
     address public constant FAST_TRANSFER_GATEWAY_ABRITRUM = 0x23Cb6147E5600C23d1fb5543916D3D5457c9B54C;
 
-    address public constant SWAP_ROUTER_OPTIMISM = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
+    address public constant SWAP_ROUTER_OPTIMISM = 0xc352fB0E5fC310FCbfD736542d45Efa27B9E1Cae;
     address public constant FAST_TRANSFER_GATEWAY_OPTIMISM = 0x0F479de4fD3144642f1Af88e3797B1821724f703;
 
-    address public constant SWAP_ROUTER_POLYGON = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
+    address public constant SWAP_ROUTER_POLYGON = 0x8A68Dd4b423Ef7568d0cdf3bB8E4863Ca1041a9e;
     address public constant FAST_TRANSFER_GATEWAY_POLYGON = 0x3Ffaf8D0D33226302E3a0AE48367cF1Dd2023B1f;
 
-    address public constant SWAP_ROUTER_BASE = 0x2626664c2603336E57B271c5C0b26F421741e481;
+    address public constant SWAP_ROUTER_BASE = 0xD57611Dd97eacb7AE19aE5d789e943d07f4dfa4f;
     address public constant FAST_TRANSFER_GATEWAY_BASE = 0x43d090025aAA6C8693B71952B910AC55CcB56bBb;
 
-    address public constant SWAP_ROUTER_AVALANCHE = 0xbb00FF08d01D300023C629E8fFfFcb65A5a578cE;
+    address public constant SWAP_ROUTER_AVALANCHE = 0xfF19fcC8563Aef3a1a83A2F52AeF9AE41D767333;
     address public constant FAST_TRANSFER_GATEWAY_AVALANCHE = 0xD415B02A7E91dBAf92EAa4721F9289CFB7f4E1cF;
 
-    address public constant SWAP_ROUTER_ETHEREUM = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
+    address public constant SWAP_ROUTER_ETHEREUM = 0xd1eE705D774d59541d3D395e72A16E48389DF7C7;
     address public constant FAST_TRANSFER_GATEWAY_ETHEREUM = 0xE7935104c9670015b21c6300E5b95d2F75474CDA;
 
     GoFastHandler public handler;
