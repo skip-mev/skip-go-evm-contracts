@@ -8,6 +8,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {SkipGoSwapRouter} from "../src/SkipGoSwapRouter.sol";
 import {UniswapV2Adapter} from "../src/adapters/UniswapV2Adapter.sol";
 import {UniswapV3Adapter} from "../src/adapters/UniswapV3Adapter.sol";
+import {VelodromeAdapter} from "../src/adapters/VelodromeAdapter.sol";
 
 contract SwapRouterDeploy is Script {
     function run() external {
@@ -24,9 +25,11 @@ contract SwapRouterDeploy is Script {
 
         UniswapV2Adapter uniswapV2Adapter = new UniswapV2Adapter();
         UniswapV3Adapter uniswapV3Adapter = new UniswapV3Adapter();
+        VelodromeAdapter velodromeAdapter = new VelodromeAdapter();
 
         router.addAdapter(SkipGoSwapRouter.ExchangeType.UNISWAP_V2, address(uniswapV2Adapter));
         router.addAdapter(SkipGoSwapRouter.ExchangeType.UNISWAP_V3, address(uniswapV3Adapter));
+        router.addAdapter(SkipGoSwapRouter.ExchangeType.VELODROME, address(velodromeAdapter));
 
         vm.stopBroadcast();
 
