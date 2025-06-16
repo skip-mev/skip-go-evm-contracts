@@ -13,7 +13,13 @@ contract DeployAdapter is Script {
     function run(string memory _dexType) external {
         console.log("Deploying adapter for dex type", _dexType);
 
-        SkipGoSwapRouter router = SkipGoSwapRouter(payable(_router()));
+        address routerAddress = _router();
+
+        console.log("Router address", routerAddress);
+
+        vm.startBroadcast();
+
+        SkipGoSwapRouter router = SkipGoSwapRouter(payable(routerAddress));
 
         SkipGoSwapRouter.ExchangeType dexType = _getDexType(_dexType);
 
@@ -27,6 +33,8 @@ contract DeployAdapter is Script {
             VelodromeAdapter velodromeAdapter = new VelodromeAdapter();
             router.addAdapter(dexType, address(velodromeAdapter));
         }
+
+        vm.stopBroadcast();
 
         console.log("Adapter deployed at", address(router));
     }
