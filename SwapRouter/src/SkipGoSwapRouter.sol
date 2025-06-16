@@ -15,7 +15,8 @@ contract SkipGoSwapRouter is Initializable, UUPSUpgradeable, OwnableUpgradeable 
 
     enum ExchangeType {
         UNISWAP_V2,
-        UNISWAP_V3
+        UNISWAP_V3,
+        VELODROME
     }
 
     mapping(ExchangeType => address) public adapters;
@@ -156,7 +157,7 @@ contract SkipGoSwapRouter is Initializable, UUPSUpgradeable, OwnableUpgradeable 
         }
     }
 
-    function getAmountOut(uint256 amountIn, Hop[] calldata hops) public view returns (uint256 amountOut) {
+    function getAmountOut(uint256 amountIn, Hop[] calldata hops) public returns (uint256 amountOut) {
         amountOut = amountIn;
         for (uint256 i = 0; i < hops.length; i++) {
             Hop memory hop = hops[i];
@@ -173,7 +174,7 @@ contract SkipGoSwapRouter is Initializable, UUPSUpgradeable, OwnableUpgradeable 
         return amountOut;
     }
 
-    function getAmountIn(uint256 amountOut, Hop[] calldata hops) public view returns (uint256 amountIn) {
+    function getAmountIn(uint256 amountOut, Hop[] calldata hops) public returns (uint256 amountIn) {
         amountIn = amountOut;
 
         for (int256 i = int256(hops.length) - 1; i >= 0; i--) {
