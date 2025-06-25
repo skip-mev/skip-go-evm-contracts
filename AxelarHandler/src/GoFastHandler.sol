@@ -47,8 +47,6 @@ contract GoFastHandler is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         uint64 timeoutTimestamp,
         bytes calldata destinationCalldata
     ) public payable returns (bytes32) {
-        require(solverFeeBPS != 0, "solver fee cannot be zero");
-
         uint256 swapAmountOut;
         uint256 swapAmountOutAfterFee;
 
