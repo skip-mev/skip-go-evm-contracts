@@ -10,7 +10,7 @@ import {IPool} from "../interfaces/velodrome/IPool.sol";
 import {ICLPool} from "../interfaces/velodrome/ICLPool.sol";
 import {IAdapter} from "../interfaces/IAdapter.sol";
 
-contract VelodromeAdapter is IAdapter {
+contract VelodromeAdapter {
     using SafeERC20 for IERC20;
 
     enum PoolType {
@@ -28,7 +28,7 @@ contract VelodromeAdapter is IAdapter {
         address swapRouter;
     }
 
-    function swapExactIn(uint256 amountIn, bytes calldata data) external returns (uint256 amountOut) {
+    function swapExactIn(uint256 amountIn, bytes calldata data) external payable returns (uint256 amountOut) {
         VelodromeData memory velodromeData = abi.decode(data, (VelodromeData));
 
         if (velodromeData.poolType == PoolType.V2) {

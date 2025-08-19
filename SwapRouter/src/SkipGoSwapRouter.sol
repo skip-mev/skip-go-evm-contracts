@@ -196,6 +196,10 @@ contract SkipGoSwapRouter is Initializable, UUPSUpgradeable, OwnableUpgradeable 
         adapters[exchangeType] = adapter;
     }
 
+    function setWeth(address _weth) external onlyOwner {
+        weth = _weth;
+    }
+
     function _revertWithData(bytes memory data) private pure {
         assembly {
             revert(add(data, 32), mload(data))

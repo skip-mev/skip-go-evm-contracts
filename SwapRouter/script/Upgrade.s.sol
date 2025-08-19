@@ -18,9 +18,11 @@ contract SwapRouterDeploy is Script {
 
         SkipGoSwapRouter router = SkipGoSwapRouter(payable(routerAddress));
 
-        SkipGoSwapRouter newImpl = new SkipGoSwapRouter();
+        // SkipGoSwapRouter newImpl = new SkipGoSwapRouter();
 
-        router.upgradeToAndCall(address(newImpl), bytes(""));
+        // router.upgradeToAndCall(address(newImpl), bytes(""));
+
+        router.setWeth(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
         vm.stopBroadcast();
     }
