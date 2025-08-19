@@ -15,11 +15,13 @@ contract DeploymentScript is Script {
 
         vm.startBroadcast();
 
-        EurekaHandler handler = EurekaHandler(0x46914a36365EC16600D81880903f3e95dcea3e5D);
+        EurekaHandler handler = EurekaHandler(0x47a4b9F949E98a49Be500753c19a8f9c9d6b7689);
 
         EurekaHandler newHandlerImplementation = new EurekaHandler();
 
         handler.upgradeToAndCall(address(newHandlerImplementation), bytes(""));
+
+        handler.setICS20Transfer(0xa348CfE719B63151F228e3C30EB424BA5a983012);
 
         vm.stopBroadcast();
     }

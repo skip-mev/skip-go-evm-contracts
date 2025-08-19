@@ -42,7 +42,7 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
         lbtc = _lbtc;
     }
 
-    function transfer(uint256 amount, TransferParams memory transferParams, Fees memory fees) external payable {        
+    function transfer(uint256 amount, TransferParams memory transferParams, Fees memory fees) external payable {
         require(block.timestamp < fees.quoteExpiry, "Fee quote expired");
 
         if (msg.value > 0) {
@@ -91,7 +91,6 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
 
             amountOut = _swap(swapInputToken, transferParams.token, swapInputAmount, swapCalldata);
         }
-
 
         if (amountOut <= _totalFees(fees)) {
             revert("Insufficient amount out to cover fees");
@@ -216,4 +215,8 @@ contract EurekaHandler is IEurekaHandler, Initializable, UUPSUpgradeable, Ownabl
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    function setICS20Transfer(address _ics20Transfer) external onlyOwner {
+        ics20Transfer = _ics20Transfer;
+    }
 }
